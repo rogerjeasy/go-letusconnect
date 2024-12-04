@@ -1,0 +1,55 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, coverage, and result files
+*.test
+*.out
+
+# Dependency directories (if you're not using Go Modules)
+vendor/
+
+# Logs
+*.log
+
+# IDE-specific and editor backup files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Go Modules and build artifacts
+/go.sum
+/go.mod
+/bin/
+/build/
+/dist/
+
+/tmp/
+/*.cache
+
+# Gopls (Go language server) logs and directories
+.gopls/
+/gopls.log
+
+# Build output
+*.o
+*.a
+
+# Coverage files
+coverage.out
+
+# Docker and CI/CD
+docker-compose.override.yml
+.env
+*.env
