@@ -31,8 +31,10 @@ func SetupRoutes(app *fiber.App) {
 
 	// User School Experience Routes
 	schoolExperiences := api.Group("/school-experiences")
-	schoolExperiences.Post("/", handlers.CreateUserSchoolExperience)
-	schoolExperiences.Put("/:id", handlers.UpdateUserSchoolExperience)
-	schoolExperiences.Get("/", handlers.GetUserSchoolExperience)
-	schoolExperiences.Delete("/:id", handlers.DeleteUserSchoolExperience)
+	schoolExperiences.Post("/", handlers.CreateSchoolExperience)
+	schoolExperiences.Get("/:uid", handlers.GetSchoolExperience)
+	schoolExperiences.Put("/:uid/universities/:universityID", handlers.UpdateUniversity)
+	schoolExperiences.Delete("/:uid/universities/:universityID", handlers.DeleteUniversity)
+	schoolExperiences.Post("/:uid/universities", handlers.AddUniversity)
+	schoolExperiences.Post("/:uid/universities/bulk", handlers.AddListOfUniversities)
 }

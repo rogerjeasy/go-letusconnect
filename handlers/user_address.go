@@ -40,8 +40,6 @@ func CreateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Printf("Request Data: %v", requestData)
-
 	// Map the frontend data to the UserAddress struct
 	address := mappers.MapFrontendToUserAddress(requestData)
 	address.UID = uid
@@ -52,7 +50,6 @@ func CreateUserAddress(c *fiber.Ctx) error {
 	// Add the address to the Firestore collection
 	docRef, _, err := services.FirestoreClient.Collection("user_addresses").Add(context.Background(), backendAddress)
 	if err != nil {
-		log.Printf("Error saving to Firestore: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to save address",
 		})

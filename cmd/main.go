@@ -8,15 +8,15 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/services"
 
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/joho/godotenv"
+	// "github.com/joho/godotenv"
 )
 
-func init() {
-	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found. Using system environment variables.")
-	}
-}
+// func init() {
+// 	// Load environment variables from .env file
+// 	if err := godotenv.Load(); err != nil {
+// 		log.Println("No .env file found. Using system environment variables.")
+// 	}
+// }
 
 func main() {
 	// Initialize Firebase

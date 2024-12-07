@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 
@@ -15,74 +14,64 @@ import (
 )
 
 func UpdateUser(c *fiber.Ctx) error {
-	uid := c.Params("uid")
-	if strings.TrimSpace(uid) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "UID is required",
-		})
-	}
-
-	// Extract and validate the token
-	authHeader := c.Get("Authorization")
-	if authHeader == "" {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+	// Extract Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Authorization token is required",
 		})
 	}
 
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-	requesterUID, err := validateToken(tokenString)
+	// Validate token
+	requesterUID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Get User UID from parameters
+	uid := c.Params("uid")
+	if uid == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "User UID is required",
 		})
 	}
 
 	// Ensure the requester is authorized to update the user
 	if requesterUID != uid {
-		return c.Status(http.StatusForbidden).JSON(fiber.Map{
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You are not authorized to update this user",
 		})
 	}
 
-	ctx := context.Background()
-	userUpdates := make(map[string]interface{})
-
-	// Parse the request body into a generic map
-	if err := c.BodyParser(&userUpdates); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload. Unable to parse JSON",
+	// Parse request body into a map
+	var requestData map[string]interface{}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
 		})
 	}
 
-	// Fetch the current user document from Firestore
+	// Query the user document from Firestore using where()
+	ctx := context.Background()
 	userQuery := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
 	defer userQuery.Stop()
 
 	doc, err := userQuery.Next()
 	if err == iterator.Done {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
 		})
 	}
 	if err != nil {
-		log.Printf("Error querying user: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user",
 		})
 	}
 
-	// Map Firestore document data to a user model
-	var currentUser models.User
-	if err := doc.DataTo(&currentUser); err != nil {
-		log.Printf("Error mapping user data: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse user data",
-		})
-	}
-
 	// Validate and sanitize user updates
-	if username, ok := userUpdates["username"].(string); ok && strings.TrimSpace(username) != "" {
+	if username, ok := requestData["username"].(string); ok && strings.TrimSpace(username) != "" {
 		if len(username) < 3 {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 				"error": "Username must be at least 3 characters long",
@@ -90,7 +79,7 @@ func UpdateUser(c *fiber.Ctx) error {
 		}
 
 		// Check for uniqueness of the new username (if changed)
-		if username != currentUser.Username {
+		if username != doc.Data()["username"] {
 			usernameQuery := services.FirestoreClient.Collection("users").Where("username", "==", username).Documents(ctx)
 			defer usernameQuery.Stop()
 			if _, err := usernameQuery.Next(); err != iterator.Done {
@@ -101,49 +90,30 @@ func UpdateUser(c *fiber.Ctx) error {
 		}
 	}
 
-	// Map updates to Firestore-compatible format
-	backendUpdates := mappers.MapFrontendToBackend(&currentUser)
-	for key, value := range userUpdates {
-		if key == "account_creation_date" {
-			// Skip updating the account creation date
-			continue
-		}
-		backendUpdates[key] = value
-	}
+	// Map the frontend data to a User struct
+	updatedUser := mappers.MapFrontendToUser(requestData)
 
-	// Apply updates to Firestore
-	_, err = services.FirestoreClient.Collection("users").Doc(doc.Ref.ID).Set(ctx, backendUpdates, firestore.MergeAll)
+	updatedUser.UID = uid
+
+	// Convert the updated User struct to Firestore-compatible format
+	backendUpdates := mappers.MapUserFrontendToBackend(&updatedUser)
+
+	// Update Firestore document
+	docRef := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID)
+	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
 	if err != nil {
-		log.Printf("Error updating user: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update user",
 		})
 	}
 
-	// Re-fetch the updated user document
-	updatedDoc, err := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID).Get(ctx)
-	if err != nil {
-		log.Printf("Error fetching updated user: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch updated user",
-		})
-	}
+	// Map the backend data to frontend format for response
+	frontendResponse := mappers.MapUserBackendToFrontend(backendUpdates)
 
-	var updatedUser models.User
-	if err := updatedDoc.DataTo(&updatedUser); err != nil {
-		log.Printf("Error mapping updated user data: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse updated user data",
-		})
-	}
-
-	// Map updated user to frontend format
-	frontendUser := mappers.MapBackendToFrontend(updatedUser)
-
-	// Return the updated user
-	return c.Status(http.StatusOK).JSON(fiber.Map{
+	// Return success response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "User updated successfully",
-		"user":    frontendUser,
+		"user":    frontendResponse,
 	})
 }
 
@@ -157,36 +127,26 @@ func GetUser(c *fiber.Ctx) error {
 
 	ctx := context.Background()
 
-	// Query Firestore for a user with the specified UID
-	userQuery := services.FirestoreClient.Collection("users").Where("UID", "==", uid).Documents(ctx)
-	defer userQuery.Stop()
-
-	doc, err := userQuery.Next()
-	if err == iterator.Done {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
-	}
+	doc, err := services.FirestoreClient.Collection("users").Doc(uid).Get(ctx)
 	if err != nil {
-		log.Printf("Error querying user: %v", err)
+		if err == iterator.Done {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
+				"error": "User not found",
+			})
+		}
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user",
 		})
 	}
 
-	// Map Firestore document data to a user model
 	var user models.User
 	if err := doc.DataTo(&user); err != nil {
-		log.Printf("Error mapping user data: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to parse user data",
 		})
 	}
 
-	// Convert the backend user to frontend format
-	frontendUser := mappers.MapBackendToFrontend(user)
-
-	// Return the user data in frontend format
+	frontendUser := mappers.MapUserBackendToFrontend(mappers.MapUserFrontendToBackend(&user))
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "User retrieved successfully",
 		"user":    frontendUser,

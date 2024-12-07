@@ -1,119 +1,127 @@
 package mappers
 
-import "github.com/rogerjeasy/go-letusconnect/models"
+import (
+	"github.com/rogerjeasy/go-letusconnect/models"
+)
 
-func MapFrontendToBackend(user *models.User) map[string]interface{} {
-	backend := make(map[string]interface{})
-
-	if user.UID != "" {
-		backend["uid"] = user.UID
+// MapUserFrontendToBackend maps frontend User data to Firestore-compatible format (snake_case)
+func MapUserFrontendToBackend(user *models.User) map[string]interface{} {
+	return map[string]interface{}{
+		"uid":                   user.UID,
+		"username":              user.Username,
+		"first_name":            user.FirstName,
+		"last_name":             user.LastName,
+		"email":                 user.Email,
+		"phone_number":          user.PhoneNumber,
+		"profile_picture":       user.ProfilePicture,
+		"bio":                   user.Bio,
+		"role":                  user.Role,
+		"graduation_year":       user.GraduationYear,
+		"current_job_title":     user.CurrentJobTitle,
+		"areas_of_expertise":    user.AreasOfExpertise,
+		"interests":             user.Interests,
+		"looking_for_mentor":    user.LookingForMentor,
+		"willing_to_mentor":     user.WillingToMentor,
+		"connections_made":      user.ConnectionsMade,
+		"account_creation_date": user.AccountCreatedAt,
+		"is_active":             user.IsActive,
+		"is_verified":           user.IsVerified,
+		"program":               user.Program,
+		"date_of_birth":         user.DateOfBirth,
+		"phone_code":            user.PhoneCode,
+		"languages":             user.Languages,
+		"skills":                user.Skills,
+		"certifications":        user.Certifications,
+		"projects":              user.Projects,
 	}
-	if user.Username != "" {
-		backend["username"] = user.Username
-	}
-	if user.FirstName != "" {
-		backend["first_name"] = user.FirstName
-	}
-	if user.LastName != "" {
-		backend["last_name"] = user.LastName
-	}
-	if user.Email != "" {
-		backend["email"] = user.Email
-	}
-	if user.PhoneNumber != "" {
-		backend["phone_number"] = user.PhoneNumber
-	}
-	if user.ProfilePicture != "" {
-		backend["profile_picture"] = user.ProfilePicture
-	}
-	if user.Bio != "" {
-		backend["bio"] = user.Bio
-	}
-	if len(user.Role) > 0 {
-		backend["role"] = user.Role
-	}
-	if user.GraduationYear != 0 {
-		backend["graduation_year"] = user.GraduationYear
-	}
-	if user.CurrentJobTitle != "" {
-		backend["current_job_title"] = user.CurrentJobTitle
-	}
-	if len(user.AreasOfExpertise) > 0 {
-		backend["areas_of_expertise"] = user.AreasOfExpertise
-	}
-	if len(user.Interests) > 0 {
-		backend["interests"] = user.Interests
-	}
-	if user.LookingForMentor {
-		backend["looking_for_mentor"] = user.LookingForMentor
-	}
-	if user.WillingToMentor {
-		backend["willing_to_mentor"] = user.WillingToMentor
-	}
-	if user.ConnectionsMade != 0 {
-		backend["connections_made"] = user.ConnectionsMade
-	}
-	if user.AccountCreatedAt != "" {
-		backend["account_creation_date"] = user.AccountCreatedAt
-	}
-	if user.IsActive {
-		backend["is_active"] = user.IsActive
-	}
-	if user.IsVerified {
-		backend["is_verified"] = user.IsVerified
-	}
-	if user.Program != "" {
-		backend["program"] = user.Program
-	}
-	if user.DateOfBirth != "" {
-		backend["date_of_birth"] = user.DateOfBirth
-	}
-	if user.PhoneCode != "" {
-		backend["phone_code"] = user.PhoneCode
-	}
-	if len(user.Languages) > 0 {
-		backend["languages"] = user.Languages
-	}
-	if len(user.Skills) > 0 {
-		backend["skills"] = user.Skills
-	}
-	if len(user.Certifications) > 0 {
-		backend["certifications"] = user.Certifications
-	}
-	if len(user.Projects) > 0 {
-		backend["projects"] = user.Projects
-	}
-
-	return backend
 }
 
-func MapBackendToFrontend(backendUser models.User) map[string]interface{} {
+// MapUserBackendToFrontend maps Firestore User data to frontend format (camelCase)
+func MapUserBackendToFrontend(backendUser map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
-		"uid":              backendUser.UID,
-		"username":         backendUser.Username,
-		"firstName":        backendUser.FirstName,
-		"lastName":         backendUser.LastName,
-		"email":            backendUser.Email,
-		"phoneNumber":      backendUser.PhoneNumber,
-		"profilePicture":   backendUser.ProfilePicture,
-		"bio":              backendUser.Bio,
-		"role":             backendUser.Role,
-		"graduationYear":   backendUser.GraduationYear,
-		"currentJobTitle":  backendUser.CurrentJobTitle,
-		"areasOfExpertise": backendUser.AreasOfExpertise,
-		"interests":        backendUser.Interests,
-		"lookingForMentor": backendUser.LookingForMentor,
-		"willingToMentor":  backendUser.WillingToMentor,
-		"connectionsMade":  backendUser.ConnectionsMade,
-		"accountCreatedAt": backendUser.AccountCreatedAt,
-		"isActive":         backendUser.IsActive,
-		"isVerified":       backendUser.IsVerified,
-		"program":          backendUser.Program,
-		"dateOfBirth":      backendUser.DateOfBirth,
-		"phoneCode":        backendUser.PhoneCode,
-		"languages":        backendUser.Languages,
-		"skills":           backendUser.Skills,
-		"certifications":   backendUser.Certifications,
-		"projects":         backendUser.Projects,
+		"uid":              getStringValue(backendUser, "uid"),
+		"username":         getStringValue(backendUser, "username"),
+		"firstName":        getStringValue(backendUser, "first_name"),
+		"lastName":         getStringValue(backendUser, "last_name"),
+		"email":            getStringValue(backendUser, "email"),
+		"phoneNumber":      getStringValue(backendUser, "phone_number"),
+		"profilePicture":   getStringValue(backendUser, "profile_picture"),
+		"bio":              getStringValue(backendUser, "bio"),
+		"role":             backendUser["role"],
+		"graduationYear":   getIntValueSafe(backendUser, "graduation_year"),
+		"currentJobTitle":  getStringValue(backendUser, "current_job_title"),
+		"areasOfExpertise": backendUser["areas_of_expertise"],
+		"interests":        backendUser["interests"],
+		"lookingForMentor": backendUser["looking_for_mentor"],
+		"willingToMentor":  backendUser["willing_to_mentor"],
+		"connectionsMade":  getIntValueSafe(backendUser, "connections_made"),
+		"accountCreatedAt": getStringValue(backendUser, "account_creation_date"),
+		"isActive":         backendUser["is_active"],
+		"isVerified":       backendUser["is_verified"],
+		"program":          getStringValue(backendUser, "program"),
+		"dateOfBirth":      getStringValue(backendUser, "date_of_birth"),
+		"phoneCode":        getStringValue(backendUser, "phone_code"),
+		"languages":        backendUser["languages"],
+		"skills":           backendUser["skills"],
+		"certifications":   backendUser["certifications"],
+		"projects":         backendUser["projects"],
 	}
+}
+
+// MapFrontendToUser maps frontend data to the User model
+func MapFrontendToUser(data map[string]interface{}) models.User {
+	return models.User{
+		UID:              getStringValue(data, "uid"),
+		Username:         getStringValue(data, "username"),
+		FirstName:        getStringValue(data, "firstName"),
+		LastName:         getStringValue(data, "lastName"),
+		Email:            getStringValue(data, "email"),
+		PhoneNumber:      getStringValue(data, "phoneNumber"),
+		ProfilePicture:   getStringValue(data, "profilePicture"),
+		Bio:              getStringValue(data, "bio"),
+		Role:             getStringArrayValue(data, "role"),
+		GraduationYear:   getIntValueSafe(data, "graduationYear"),
+		CurrentJobTitle:  getStringValue(data, "currentJobTitle"),
+		AreasOfExpertise: getStringArrayValue(data, "areasOfExpertise"),
+		Interests:        getStringArrayValue(data, "interests"),
+		LookingForMentor: getBoolValueSafe(data, "lookingForMentor"),
+		WillingToMentor:  getBoolValueSafe(data, "willingToMentor"),
+		ConnectionsMade:  getIntValueSafe(data, "connectionsMade"),
+		AccountCreatedAt: getStringValue(data, "accountCreatedAt"),
+		IsActive:         getBoolValueSafe(data, "isActive"),
+		IsVerified:       getBoolValueSafe(data, "isVerified"),
+		Password:         getStringValue(data, "password"),
+		Program:          getStringValue(data, "program"),
+		DateOfBirth:      getStringValue(data, "dateOfBirth"),
+		PhoneCode:        getStringValue(data, "phoneCode"),
+		Languages:        getStringArrayValue(data, "languages"),
+		Skills:           getStringArrayValue(data, "skills"),
+		Certifications:   getStringArrayValue(data, "certifications"),
+		Projects:         getStringArrayValue(data, "projects"),
+	}
+}
+
+func getStringArrayValue(data map[string]interface{}, key string) []string {
+	if value, ok := data[key]; ok {
+		if arr, isArray := value.([]interface{}); isArray {
+			var result []string
+			for _, v := range arr {
+				if strVal, isString := v.(string); isString {
+					result = append(result, strVal)
+				}
+			}
+			return result
+		}
+	}
+	return []string{}
+}
+
+// getBoolValueSafe safely retrieves a boolean value from a map
+func getBoolValueSafe(data map[string]interface{}, key string) bool {
+	if value, ok := data[key]; ok {
+		if boolVal, isBool := value.(bool); isBool {
+			return boolVal
+		}
+	}
+	return false
 }

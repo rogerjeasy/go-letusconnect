@@ -66,14 +66,15 @@ func getStringValue(data map[string]interface{}, key string) string {
 
 // Helper function to safely get integer values
 func getIntValueSafe(data map[string]interface{}, key string) int {
-	if value, ok := data[key]; ok {
-		switch v := value.(type) {
-		case float64:
-			return int(v) // Convert float64 to int for numeric fields from JSON
+	if val, ok := data[key]; ok {
+		switch v := val.(type) {
 		case int:
 			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
 		case string:
-			// Attempt to convert string to int
 			if intValue, err := strconv.Atoi(v); err == nil {
 				return intValue
 			}

@@ -67,14 +67,16 @@ func FormatTime(t time.Time, layout string) string {
 
 // Register creates a new user in Firebase Authentication and Firestore
 func Register(c *fiber.Ctx) error {
-	user := new(models.User)
-
-	// Parse request body into user model
-	if err := c.BodyParser(user); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+	// Parse the request body into a map
+	var requestData map[string]interface{}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
+
+	// Map the frontend data to the User struct
+	user := mappers.MapFrontendToUser(requestData)
 
 	// Validate required fields
 	if strings.TrimSpace(user.Username) == "" {
@@ -141,8 +143,8 @@ func Register(c *fiber.Ctx) error {
 	user.Role = []string{"user"}
 	user.Password = ""
 
-	// Map user to Firestore-compatible (snake_case) format
-	backendUser := mappers.MapFrontendToBackend(user)
+	// Convert the user struct to Firestore-compatible (snake_case) format
+	backendUser := mappers.MapUserFrontendToBackend(&user)
 
 	// Save user to Firestore
 	_, _, err = services.FirestoreClient.Collection("users").Add(ctx, backendUser)
@@ -154,7 +156,7 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	// Generate JWT token
-	token, err := GenerateJWT(user)
+	token, err := GenerateJWT(&user)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate token",
@@ -171,7 +173,7 @@ func Register(c *fiber.Ctx) error {
 	})
 
 	// Map backend user to frontend (camelCase) format
-	frontendUser := mappers.MapBackendToFrontend(*user)
+	frontendUser := mappers.MapUserBackendToFrontend(backendUser)
 
 	// Return success response
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
@@ -186,18 +188,19 @@ func Register(c *fiber.Ctx) error {
 // FirebaseSignInURL is the Firebase REST API endpoint for sign-in
 
 // Login authenticates the user and returns a JWT token
+// Login authenticates the user and returns a JWT token
 func Login(c *fiber.Ctx) error {
-	credentials := new(models.LoginCredentials)
+	var user models.User
 
-	// Parse request body into credentials model
-	if err := c.BodyParser(credentials); err != nil {
+	// Parse request body into User model
+	if err := c.BodyParser(&user); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
 
 	// Validate input fields
-	if credentials.Email == "" || credentials.Password == "" {
+	if strings.TrimSpace(user.Email) == "" || strings.TrimSpace(user.Password) == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error": "Email and password are required",
 		})
@@ -205,8 +208,8 @@ func Login(c *fiber.Ctx) error {
 
 	// Prepare request payload for Firebase Authentication REST API
 	payload := map[string]string{
-		"email":             credentials.Email,
-		"password":          credentials.Password,
+		"email":             user.Email,
+		"password":          user.Password,
 		"returnSecureToken": "true",
 	}
 
@@ -237,7 +240,7 @@ func Login(c *fiber.Ctx) error {
 
 	// Retrieve user details from Firestore
 	ctx := context.Background()
-	userQuery := services.FirestoreClient.Collection("users").Where("email", "==", credentials.Email).Documents(ctx)
+	userQuery := services.FirestoreClient.Collection("users").Where("email", "==", user.Email).Documents(ctx)
 	defer userQuery.Stop()
 
 	doc, err := userQuery.Next()
@@ -247,15 +250,15 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	var user models.User
-	if err := doc.DataTo(&user); err != nil {
+	var dbUser models.User
+	if err := doc.DataTo(&dbUser); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to retrieve user data",
 		})
 	}
 
 	// Generate JWT token
-	token, err := GenerateJWT(&user)
+	token, err := GenerateJWT(&dbUser)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate token",
@@ -271,7 +274,8 @@ func Login(c *fiber.Ctx) error {
 		Secure:   true,
 	})
 
-	frontendUser := mappers.MapBackendToFrontend(user)
+	// Map backend user to frontend format
+	frontendUser := mappers.MapUserBackendToFrontend(mappers.MapUserFrontendToBackend(&dbUser))
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "Login successful",

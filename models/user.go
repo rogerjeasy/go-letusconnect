@@ -61,7 +61,7 @@ type University struct {
 	City             string   `json:"city"`
 	StartYear        int      `json:"start_year"`
 	EndYear          int      `json:"end_year"`
-	Level            string   `json:"level"`
+	Degree           string   `json:"degree"`
 	Experience       string   `json:"experience"`
 	Awards           []string `json:"awards"`
 	Extracurriculars []string `json:"extracurriculars"`
