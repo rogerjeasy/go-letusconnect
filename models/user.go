@@ -76,6 +76,7 @@ type UserWorkExperience struct {
 }
 
 type WorkExperience struct {
+	ID               string    `json:"id"`
 	Company          string    `json:"company"`
 	Position         string    `json:"position"`
 	City             string    `json:"city"`

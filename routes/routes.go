@@ -37,4 +37,19 @@ func SetupRoutes(app *fiber.App) {
 	schoolExperiences.Delete("/:uid/universities/:universityID", handlers.DeleteUniversity)
 	schoolExperiences.Post("/:uid/universities", handlers.AddUniversity)
 	schoolExperiences.Post("/:uid/universities/bulk", handlers.AddListOfUniversities)
+
+	// Contact Us Routes
+	contacts := api.Group("/contact-us")
+	contacts.Post("/", handlers.CreateContact)
+	contacts.Get("/", handlers.GetAllContacts)
+	contacts.Get("/:id", handlers.GetContactByID)
+	contacts.Put("/:id", handlers.UpdateContactStatus)
+
+	// FAQ Routes
+	faqs := api.Group("/faqs")
+	faqs.Get("/", handlers.GetAllFAQs)
+	faqs.Post("/", handlers.CreateFAQ)
+	faqs.Put("/:id", handlers.UpdateFAQ)
+	faqs.Delete("/:id", handlers.DeleteFAQ)
+
 }
