@@ -30,7 +30,6 @@ Thumbs.db
 
 # Go Modules and build artifacts
 /go.sum
-/go.mod
 /bin/
 /build/
 /dist/
