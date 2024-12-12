@@ -29,7 +29,6 @@ vendor/
 Thumbs.db
 
 # Go Modules and build artifacts
-/go.sum
 /bin/
 /build/
 /dist/
