@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -18,7 +19,7 @@ var (
 )
 
 func InitializeFirebase() error {
-	opt := option.WithCredentialsFile("C:/Users/rogej/Downloads/go-connect-4f9f8-firebase-adminsdk-3qjyg-2a778c1517.json")
+	opt := option.WithCredentialsFile(os.Getenv("FIREBASE_SERVICE_ACCOUNT"))
 
 	// Initialize Firebase app
 	app, err := firebase.NewApp(context.Background(), nil, opt)
