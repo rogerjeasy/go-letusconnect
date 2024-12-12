@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -186,6 +187,7 @@ func Register(c *fiber.Ctx) error {
 // Login authenticates a user using Firebase Authentication
 
 // FirebaseSignInURL is the Firebase REST API endpoint for sign-in
+var FirebaseSignInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + os.Getenv("FIREBASE_API_KEY")
 
 // Login authenticates the user and returns a JWT token
 // Login authenticates the user and returns a JWT token

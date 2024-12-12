@@ -152,3 +152,38 @@ func GetUser(c *fiber.Ctx) error {
 		"user":    frontendUser,
 	})
 }
+
+// GetAllUsers retrieves all users from the Firestore "users" collection
+func GetAllUsers(c *fiber.Ctx) error {
+	ctx := context.Background()
+
+	// Query all documents in the "users" collection
+	iter := services.FirestoreClient.Collection("users").Documents(ctx)
+	defer iter.Stop()
+
+	var users []map[string]interface{}
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to fetch users",
+			})
+		}
+
+		// Log raw data to check the Firestore document
+		data := doc.Data()
+
+		// Map the backend user data to frontend format
+		frontendUser := mappers.MapUserBackendToFrontend(data)
+		users = append(users, frontendUser)
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"message": "Users retrieved successfully",
+		"users":   users,
+	})
+}
