@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 
+	"os"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/routes"
 	"github.com/rogerjeasy/go-letusconnect/services"
@@ -10,13 +12,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	// "github.com/joho/godotenv"
 )
-
-// func init() {
-// 	// Load environment variables from .env file
-// 	if err := godotenv.Load(); err != nil {
-// 		log.Println("No .env file found. Using system environment variables.")
-// 	}
-// }
 
 func main() {
 	// Initialize Firebase
@@ -28,7 +23,7 @@ func main() {
 
 	// Enable CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000", // Allow requests from your frontend
+		AllowOrigins: "http://localhost:3000",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
@@ -36,6 +31,10 @@ func main() {
 	// Setup routes
 	routes.SetupRoutes(app)
 
-	// Start the server
-	log.Fatal(app.Listen(":8080"))
+	// Start the server on the port provided by Render
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(app.Listen(":" + port))
 }
