@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -19,7 +21,34 @@ var (
 )
 
 func InitializeFirebase() error {
-	opt := option.WithCredentialsFile(os.Getenv("FIREBASE_SERVICE_ACCOUNT"))
+	// opt := option.WithCredentialsFile(os.Getenv("FIREBASE_SERVICE_ACCOUNT"))
+
+	// Retrieve the base64-encoded service account key from the environment variable
+	base64EncodedKey := os.Getenv("FIREBASE_SERVICE_ACCOUNT")
+
+	// Decode the base64-encoded key
+	decodedKey, err := base64.StdEncoding.DecodeString(base64EncodedKey)
+	if err != nil {
+		return fmt.Errorf("failed to decode service account key: %v", err)
+	}
+
+	// Create a temporary file to store the decoded key
+	tempFile, err := ioutil.TempFile("", "firebase-service-account")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %v", err)
+	}
+	defer os.Remove(tempFile.Name()) // Clean up the temporary file
+
+	if _, err := tempFile.Write(decodedKey); err != nil {
+		return fmt.Errorf("failed to write to temporary file: %v", err)
+	}
+
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temporary file: %v", err)
+	}
+
+	// Use the temporary file as the credentials file
+	opt := option.WithCredentialsFile(tempFile.Name())
 
 	// Initialize Firebase app
 	app, err := firebase.NewApp(context.Background(), nil, opt)
