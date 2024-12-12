@@ -58,6 +58,8 @@ func InitializeFirebase() error {
 
 	FirebaseApp = app
 	log.Println("Firebase initialized successfully")
+	log.Println("decodedKey: ", decodedKey)
+	log.Println("tempFile: ", tempFile.Name())
 
 	// Initialize Firestore client
 	client, err := app.Firestore(context.Background())
