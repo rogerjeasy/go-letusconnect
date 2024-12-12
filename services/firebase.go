@@ -62,7 +62,7 @@ func InitializeFirebase() error {
 	// Initialize Firestore client
 	client, err := app.Firestore(context.Background())
 	if err != nil {
-		return fmt.Errorf("error initializing Firestore client: %v", err)
+		return fmt.Errorf("error initializing Firestore client-------------------------: %v", err)
 	}
 
 	FirestoreClient = client
