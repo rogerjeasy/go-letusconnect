@@ -53,4 +53,12 @@ func SetupRoutes(app *fiber.App) {
 	faqs.Put("/:id", handlers.UpdateFAQ)
 	faqs.Delete("/:id", handlers.DeleteFAQ)
 
+	// Project Management Routes
+	projects := api.Group("/projects")
+	projects.Post("/", handlers.CreateProject)
+	// projects.Get("/", handlers.GetAllProjects)
+	projects.Get("/:id", handlers.GetProject)
+	projects.Put("/:id", handlers.UpdateProject)
+	// projects.Delete("/:id", handlers.DeleteProject)
+
 }

@@ -26,6 +26,8 @@ func InitializeFirebase() error {
 	// Retrieve the base64-encoded service account key from the environment variable
 	base64EncodedKey := os.Getenv("FIREBASE_SERVICE_ACCOUNT")
 
+	log.Println("base64EncodedKey: ", base64EncodedKey)
+
 	// Decode the base64-encoded key
 	decodedKey, err := base64.StdEncoding.DecodeString(base64EncodedKey)
 	if err != nil {
@@ -61,7 +63,7 @@ func InitializeFirebase() error {
 	// Initialize Firestore client
 	client, err := app.Firestore(context.Background())
 	if err != nil {
-		return fmt.Errorf("error initializing Firestore client-------------------------: %v", err)
+		return fmt.Errorf("error initializing Firestore client: %v", err)
 	}
 
 	FirestoreClient = client

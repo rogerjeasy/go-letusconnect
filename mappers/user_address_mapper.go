@@ -1,8 +1,6 @@
 package mappers
 
 import (
-	"strconv"
-
 	"github.com/rogerjeasy/go-letusconnect/models"
 )
 
@@ -52,33 +50,4 @@ func MapFrontendToUserAddress(data map[string]interface{}) models.UserAddress {
 	}
 
 	return address
-}
-
-// Helper function to safely get string values
-func getStringValue(data map[string]interface{}, key string) string {
-	if value, ok := data[key]; ok {
-		if strVal, isString := value.(string); isString {
-			return strVal
-		}
-	}
-	return ""
-}
-
-// Helper function to safely get integer values
-func getIntValueSafe(data map[string]interface{}, key string) int {
-	if val, ok := data[key]; ok {
-		switch v := val.(type) {
-		case int:
-			return v
-		case int64:
-			return int(v)
-		case float64:
-			return int(v)
-		case string:
-			if intValue, err := strconv.Atoi(v); err == nil {
-				return intValue
-			}
-		}
-	}
-	return 0
 }

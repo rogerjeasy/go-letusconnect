@@ -101,21 +101,6 @@ func MapFrontendToUser(data map[string]interface{}) models.User {
 	}
 }
 
-func getStringArrayValue(data map[string]interface{}, key string) []string {
-	if value, ok := data[key]; ok {
-		if arr, isArray := value.([]interface{}); isArray {
-			var result []string
-			for _, v := range arr {
-				if strVal, isString := v.(string); isString {
-					result = append(result, strVal)
-				}
-			}
-			return result
-		}
-	}
-	return []string{}
-}
-
 // getBoolValueSafe safely retrieves a boolean value from a map
 func getBoolValueSafe(data map[string]interface{}, key string) bool {
 	if value, ok := data[key]; ok {
