@@ -99,3 +99,17 @@ func mapFeedbacksArrayToFrontend(data interface{}) []map[string]interface{} {
 	}
 	return []map[string]interface{}{}
 }
+
+// GetJoinRequestsArray extracts and maps the "join_requests" field to a slice of models.JoinRequest
+func GetJoinRequestsArray(data map[string]interface{}, key string) []models.JoinRequest {
+	if joinRequests, ok := data[key].([]interface{}); ok {
+		var result []models.JoinRequest
+		for _, jr := range joinRequests {
+			if jrMap, ok := jr.(map[string]interface{}); ok {
+				result = append(result, MapJoinRequestFirestoreToGo(jrMap))
+			}
+		}
+		return result
+	}
+	return []models.JoinRequest{}
+}

@@ -59,6 +59,10 @@ func SetupRoutes(app *fiber.App) {
 	// projects.Get("/", handlers.GetAllProjects)
 	projects.Get("/:id", handlers.GetProject)
 	projects.Put("/:id", handlers.UpdateProject)
-	// projects.Delete("/:id", handlers.DeleteProject)
+	projects.Delete("/:id", handlers.DeleteProject)
+	// 2. Collaboration Endpoints
+	projects.Post("/:id/join", handlers.JoinProjectCollab)
+	projects.Put("/:id/join-requests/:uid", handlers.AcceptRejectJoinRequestCollab)
+	projects.Post("/:id/invite", handlers.InviteUserCollab)
 
 }

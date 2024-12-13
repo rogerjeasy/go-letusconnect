@@ -261,3 +261,73 @@ func GetProject(c *fiber.Ctx) error {
 		"data":    projectFrontend,
 	})
 }
+
+// DeleteProject handles deleting a project by its ID
+func DeleteProject(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Get the project ID from the route parameter
+	projectID := c.Params("id")
+	if projectID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project ID is required",
+		})
+	}
+
+	ctx := context.Background()
+
+	// Fetch the project document from Firestore
+	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+
+	// Map Firestore data to a Project struct
+	projectData := doc.Data()
+	project := mappers.MapProjectFirestoreToGo(projectData)
+
+	// Check if the user is the project owner
+	isOwner := project.OwnerID == uid
+
+	// Check if the user is a participant with the role "owner"
+	for _, participant := range project.Participants {
+		if participant.UserID == uid && participant.Role == "owner" {
+			isOwner = true
+			break
+		}
+	}
+
+	if !isOwner {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You do not have permission to delete this project",
+		})
+	}
+
+	// Delete the project from Firestore
+	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Delete(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete project",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Project deleted successfully",
+	})
+}
