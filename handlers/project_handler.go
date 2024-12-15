@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/services"
+	"google.golang.org/api/iterator"
 )
 
 // CreateProject handles the creation of a new project
@@ -31,7 +32,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's details (username)
-	username, err := services.GetUsernameByUID(uid)
+	user, err := services.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -47,7 +48,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Validate mandatory fields
-	mandatoryFields := []string{"title", "description", "collaborationType", "academicFields"}
+	mandatoryFields := []string{"title", "description", "collaborationType"}
 	for _, field := range mandatoryFields {
 		if _, ok := requestData[field]; !ok || requestData[field] == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -58,12 +59,15 @@ func CreateProject(c *fiber.Ctx) error {
 
 	// Set additional fields for the project
 	requestData["ownerId"] = uid
-	requestData["ownerUsername"] = username
+	requestData["ownerUsername"] = user["username"]
 	requestData["participants"] = []map[string]interface{}{
 		{
-			"userId":   uid,
-			"role":     "owner",
-			"joinedAt": time.Now().Format(time.RFC3339),
+			"userId":         uid,
+			"role":           "owner",
+			"username":       user["username"],
+			"profilePicture": user["profile_picture"],
+			"email":          user["email"],
+			"joinedAt":       time.Now().Format(time.RFC3339),
 		},
 	}
 
@@ -76,7 +80,7 @@ func CreateProject(c *fiber.Ctx) error {
 		requestData["participants"] = participantInterfaces
 	}
 
-	requestData["status"] = "open"
+	// requestData["status"] = "open"
 	requestData["createdAt"] = time.Now().Format(time.RFC3339)
 	requestData["updatedAt"] = time.Now().Format(time.RFC3339)
 
@@ -329,5 +333,138 @@ func DeleteProject(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Project deleted successfully",
+	})
+}
+
+// GetAllPublicProjects fetches all public projects
+func GetAllPublicProjects(c *fiber.Ctx) error {
+	ctx := context.Background()
+
+	// Query Firestore for projects with collaboration_type == "public"
+	iter := services.FirestoreClient.Collection("projects").Where("collaboration_type", "==", "public").Documents(ctx)
+	var projects []map[string]interface{}
+
+	for {
+		doc, err := iter.Next()
+		if err != nil {
+			break
+		}
+		projectData := doc.Data()
+		projectFrontend := mappers.MapProjectFirestoreToFrontend(projectData)
+		projectFrontend["id"] = doc.Ref.ID
+		projects = append(projects, projectFrontend)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Public projects fetched successfully",
+		"data":    projects,
+	})
+}
+
+// GetOwnerProjects fetches all projects where the user is the owner
+func GetOwnerProjects(c *fiber.Ctx) error {
+
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	ctx := context.Background()
+
+	var projects []map[string]interface{} = []map[string]interface{}{}
+
+	// Query Firestore for projects where owner_id == uid
+	iter := services.FirestoreClient.Collection("projects").Where("owner_id", "==", uid).Documents(ctx)
+
+	for {
+		doc, err := iter.Next()
+		if err != nil {
+			break
+		}
+		projectData := doc.Data()
+		projectFrontend := mappers.MapProjectFirestoreToFrontend(projectData)
+		projectFrontend["id"] = doc.Ref.ID
+		projects = append(projects, projectFrontend)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Owner projects fetched successfully",
+		"data":    projects,
+	})
+}
+
+// GetParticipationProjects fetches all projects where the user is a participant
+func GetParticipationProjects(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	ctx := context.Background()
+
+	// Initialize the projects slice to an empty slice
+	var projects []map[string]interface{} = []map[string]interface{}{}
+
+	// Query Firestore for projects where participants array contains the user ID
+	iter := services.FirestoreClient.Collection("projects").Where("participants", "array-contains", map[string]interface{}{
+		"user_id": uid,
+	}).Documents(ctx)
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to fetch projects",
+			})
+		}
+
+		projectData := doc.Data()
+
+		// Check if participants field exists and is a slice
+		participants, ok := projectData["participants"].([]interface{})
+		if !ok || len(participants) < 2 {
+			continue // Skip projects that do not have at least two participants
+		}
+
+		// Skip the first participant and check if the user is among the remaining participants
+		for _, participant := range participants[1:] {
+			p, ok := participant.(map[string]interface{})
+			if ok && p["user_id"] == uid {
+				projectFrontend := mappers.MapProjectFirestoreToFrontend(projectData)
+				projectFrontend["id"] = doc.Ref.ID
+				projects = append(projects, projectFrontend)
+				break
+			}
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Participation projects fetched successfully",
+		"data":    projects,
 	})
 }

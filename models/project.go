@@ -13,7 +13,7 @@ type Project struct {
 	Industry          string        `json:"industry"`
 	AcademicFields    []string      `json:"academic_fields"`
 	Status            string        `json:"status"` // "open", "in_progress", "completed", "archived"
-	Participants      []InvitedUser `json:"participants"`
+	Participants      []Participant `json:"participants"`
 	InvitedUsers      []InvitedUser `json:"invited_users"`
 	JoinRequests      []JoinRequest `json:"join_requests"`
 	Tasks             []Task        `json:"tasks"`

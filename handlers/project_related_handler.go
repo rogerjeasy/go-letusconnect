@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
@@ -329,5 +330,277 @@ func InviteUserCollab(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "User invited successfully",
+	})
+}
+
+// AddTask handles adding a task to a project
+func AddTask(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	projectID := c.Params("id")
+	if projectID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project ID is required",
+		})
+	}
+
+	ctx := context.Background()
+
+	// Fetch the project from Firestore
+	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+
+	projectData := doc.Data()
+	project := mappers.MapProjectFirestoreToGo(projectData)
+
+	// Check if the user is the project owner or a participant
+	isAuthorized := project.OwnerID == uid
+	for _, participant := range project.Participants {
+		if participant.UserID == uid {
+			isAuthorized = true
+			break
+		}
+	}
+
+	if !isAuthorized {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You do not have permission to add tasks to this project",
+		})
+	}
+
+	// Parse the request payload for the task details
+	var task models.Task
+	if err := c.BodyParser(&task); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate that the title is not empty
+	if task.Title == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Task title is required",
+		})
+	}
+
+	// Generate a unique task ID and set additional fields
+	task.ID = uuid.New().String()
+	task.CreatedAt = time.Now()
+	task.UpdatedAt = time.Now()
+
+	// Add the task to Firestore
+	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+		{Path: "tasks", Value: firestore.ArrayUnion(mappers.MapTaskGoToFirestore(task))},
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to add task to the project",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Task added successfully",
+		"task":    mappers.MapTaskGoToFrontend(task),
+	})
+}
+
+// UpdateTask handles updating task details
+func UpdateTask(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	projectID := c.Params("id")
+	taskID := c.Params("taskID")
+	if projectID == "" || taskID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project ID and Task ID are required",
+		})
+	}
+
+	ctx := context.Background()
+
+	// Fetch the project from Firestore
+	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+
+	projectData := doc.Data()
+	project := mappers.MapProjectFirestoreToGo(projectData)
+
+	// Check if the user is authorized (project owner or participant)
+	isAuthorized := project.OwnerID == uid
+	for _, participant := range project.Participants {
+		if participant.UserID == uid {
+			isAuthorized = true
+			break
+		}
+	}
+
+	if !isAuthorized {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You do not have permission to update tasks in this project",
+		})
+	}
+
+	// Parse the request payload for task updates
+	var updatedTaskData map[string]interface{}
+	if err := c.BodyParser(&updatedTaskData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Update the specific task
+	taskUpdated := false
+	for i, task := range project.Tasks {
+		if task.ID == taskID {
+			updatedTask := mappers.MapTaskFrontendToGo(updatedTaskData)
+			updatedTask.ID = task.ID
+			updatedTask.CreatedAt = task.CreatedAt
+			updatedTask.UpdatedAt = time.Now()
+			project.Tasks[i] = updatedTask
+			taskUpdated = true
+			break
+		}
+	}
+
+	if !taskUpdated {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Task not found",
+		})
+	}
+
+	// Save the updated project back to Firestore
+	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Set(ctx, mappers.MapProjectGoToFirestore(project))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update task",
+		})
+	}
+
+	// Map each task to frontend format
+	var frontendTasks []map[string]interface{}
+	for _, task := range project.Tasks {
+		frontendTasks = append(frontendTasks, mappers.MapTaskGoToFrontend(task))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Task updated successfully",
+		"tasks":   frontendTasks,
+	})
+
+}
+
+// DeleteTask handles deleting a task from a project
+func DeleteTask(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	projectID := c.Params("id")
+	taskID := c.Params("taskID")
+	if projectID == "" || taskID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project ID and Task ID are required",
+		})
+	}
+
+	ctx := context.Background()
+
+	// Fetch the project from Firestore
+	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+
+	projectData := doc.Data()
+	project := mappers.MapProjectFirestoreToGo(projectData)
+
+	// Check if the user is authorized
+	isAuthorized := project.OwnerID == uid
+	for _, participant := range project.Participants {
+		if participant.UserID == uid {
+			isAuthorized = true
+			break
+		}
+	}
+
+	if !isAuthorized {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You do not have permission to delete tasks from this project",
+		})
+	}
+
+	// Filter out the task to be deleted
+	var updatedTasks []map[string]interface{}
+	for _, task := range project.Tasks {
+		if task.ID != taskID {
+			updatedTasks = append(updatedTasks, mappers.MapTaskGoToFirestore(task))
+		}
+	}
+
+	// Debug: print the updated tasks before updating Firestore
+	fmt.Printf("Updated Tasks: %+v\n", updatedTasks)
+
+	// Update Firestore with the new tasks list
+	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Set(ctx, map[string]interface{}{
+		"tasks": updatedTasks,
+	}, firestore.MergeAll)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete task",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Task deleted successfully",
 	})
 }

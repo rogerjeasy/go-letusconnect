@@ -26,8 +26,6 @@ func InitializeFirebase() error {
 	// Retrieve the base64-encoded service account key from the environment variable
 	base64EncodedKey := os.Getenv("FIREBASE_SERVICE_ACCOUNT")
 
-	log.Println("base64EncodedKey: ", base64EncodedKey)
-
 	// Decode the base64-encoded key
 	decodedKey, err := base64.StdEncoding.DecodeString(base64EncodedKey)
 	if err != nil {
@@ -51,6 +49,7 @@ func InitializeFirebase() error {
 
 	// Use the temporary file as the credentials file
 	opt := option.WithCredentialsFile(tempFile.Name())
+	// opt := option.WithCredentialsFile("C:/Users/rogej/Downloads/go-connect-4f9f8-firebase-adminsdk-3qjyg-2a778c1517.json")
 
 	// Initialize Firebase app
 	app, err := firebase.NewApp(context.Background(), nil, opt)

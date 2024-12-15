@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/handlers"
+	// "github.com/rogerjeasy/go-letusconnect/middleware"
 )
 
 func SetupRoutes(app *fiber.App) {
@@ -55,6 +56,10 @@ func SetupRoutes(app *fiber.App) {
 
 	// Project Management Routes
 	projects := api.Group("/projects")
+	projects.Get("/owner", handlers.GetOwnerProjects)
+	projects.Get("/participation", handlers.GetParticipationProjects)
+	projects.Get("/public", handlers.GetAllPublicProjects)
+	// projects.Use(middleware.AuthMiddleware)
 	projects.Post("/", handlers.CreateProject)
 	// projects.Get("/", handlers.GetAllProjects)
 	projects.Get("/:id", handlers.GetProject)
@@ -64,5 +69,9 @@ func SetupRoutes(app *fiber.App) {
 	projects.Post("/:id/join", handlers.JoinProjectCollab)
 	projects.Put("/:id/join-requests/:uid", handlers.AcceptRejectJoinRequestCollab)
 	projects.Post("/:id/invite", handlers.InviteUserCollab)
+	// 3. Task Endpoints
+	projects.Post("/:id/tasks", handlers.AddTask)
+	projects.Put("/:id/tasks/:taskID", handlers.UpdateTask)
+	projects.Delete("/:id/tasks/:taskID", handlers.DeleteTask)
 
 }

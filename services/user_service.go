@@ -80,3 +80,26 @@ func GetUsernameByUID(uid string) (string, error) {
 
 	return usernameStr, nil
 }
+
+// Get User info by UID
+func GetUserByUID(uid string) (map[string]interface{}, error) {
+	ctx := context.Background()
+
+	// Query the Firestore collection to find a user document with the given UID
+	query := FirestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
+	defer query.Stop()
+
+	// Get the next document matching the query
+	doc, err := query.Next()
+	if err == iterator.Done {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, errors.New("failed to fetch user data")
+	}
+
+	// Extract the user data from the document
+	data := doc.Data()
+
+	return data, nil
+}

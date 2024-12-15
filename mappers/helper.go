@@ -215,11 +215,44 @@ func getInvitedUsersArray(data map[string]interface{}, key string) []models.Invi
 	return result
 }
 
+func getParticipantsArray(data map[string]interface{}, key string) []models.Participant {
+	result := []models.Participant{}
+
+	if value, ok := data[key]; ok {
+		// Ensure the value is a slice of interfaces
+		if participants, ok := value.([]interface{}); ok {
+			for _, v := range participants {
+				if userMap, ok := v.(map[string]interface{}); ok {
+					user := MapParticipantFrontendToGo(userMap)
+					result = append(result, user)
+				} else {
+					fmt.Println("Error: participant is not a map[string]interface{}")
+				}
+			}
+		} else {
+			fmt.Println("Error: participants is not a []interface{}")
+		}
+	} else {
+		fmt.Println("Error: participants key not found in data")
+	}
+
+	return result
+}
+
 // Converts a slice of InvitedUser structs to Firestore format
 func mapInvitedUsersArrayToFirestore(users []models.InvitedUser) []map[string]interface{} {
 	var result []map[string]interface{}
 	for _, user := range users {
 		result = append(result, MapInvitedUserGoToFirestore(user))
+	}
+	return result
+}
+
+// Converts a slice of Participant structs to Firestore format
+func mapParticipantsArrayToFirestore(users []models.Participant) []map[string]interface{} {
+	var result []map[string]interface{}
+	for _, user := range users {
+		result = append(result, MapParticipantGoToFirestore(user))
 	}
 	return result
 }
