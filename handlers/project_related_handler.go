@@ -49,7 +49,7 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		})
 	}
 
-	username, err := services.GetUsernameByUID(uid)
+	user, err := services.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -58,11 +58,13 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 
 	// Create the join request
 	joinRequest := models.JoinRequest{
-		UserID:      uid,
-		UserName:    username,
-		Message:     "Request to join the project",
-		RequestedAt: time.Now(),
-		Status:      "pending",
+		UserID:         uid,
+		Username:       user["username"].(string),
+		ProfilePicture: user["profile_picture"].(string),
+		Email:          user["email"].(string),
+		Message:        "Request to join the project",
+		RequestedAt:    time.Now(),
+		Status:         "pending",
 	}
 
 	ctx := context.Background()
@@ -76,6 +78,13 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 	}
 
 	projectData := doc.Data()
+
+	// Check if the user is the owner of the project
+	if projectData["owner_id"] == uid {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Owners cannot join their own project",
+		})
+	}
 
 	// Check if the user has already applied
 	joinRequests := mappers.GetJoinRequestsArray(projectData, "join_requests")
@@ -159,9 +168,14 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the request payload for action ("accept" or "reject")
+	// Parse the request payload for action ("accept" or "reject") and user details
 	var requestData struct {
-		Action string `json:"action"`
+		Action         string `json:"action"`
+		Role           string `json:"role"`
+		Username       string `json:"username"`
+		Email          string `json:"email"`
+		ProfilePicture string `json:"profilePicture"`
+		UserID         string `json:"user_id"`
 	}
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -175,15 +189,23 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 		jrMap := jr.(map[string]interface{})
 		if jrMap["user_id"] == userID {
 			if requestData.Action == "accept" {
-				// Add the user as a participant
+				// Add the user as a participant with the provided attributes
 				newParticipant := map[string]interface{}{
-					"user_id":   userID,
-					"role":      "member",
-					"joined_at": time.Now().Format(time.RFC3339),
+					"user_id":         userID,
+					"role":            requestData.Role,
+					"username":        requestData.Username,
+					"email":           requestData.Email,
+					"profile_picture": requestData.ProfilePicture,
+					"joined_at":       time.Now().Format(time.RFC3339),
 				}
-				services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+				_, err := services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 					{Path: "participants", Value: firestore.ArrayUnion(newParticipant)},
 				})
+				if err != nil {
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+						"error": "Failed to add participant",
+					})
+				}
 			}
 			// Skip adding the join request to updatedJoinRequests to remove it
 		} else {
@@ -191,14 +213,14 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 		}
 	}
 
-	// Update the join requests in Firestore
+	// Update the join requests in Firestore to remove the processed request
 	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 		{Path: "join_requests", Value: updatedJoinRequests},
 	})
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update join request",
+			"error": "Failed to update join requests",
 		})
 	}
 

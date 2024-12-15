@@ -7,44 +7,52 @@ import (
 // 1. Map JoinRequest from frontend format to Go struct
 func MapJoinRequestFrontendToGo(data map[string]interface{}) models.JoinRequest {
 	return models.JoinRequest{
-		UserID:      getStringValue(data, "userId"),
-		UserName:    getStringValue(data, "userName"),
-		Message:     getStringValue(data, "message"),
-		RequestedAt: getTimeValue(data, "requestedAt"),
-		Status:      getStringValue(data, "status"),
+		UserID:         getStringValue(data, "userId"),
+		Username:       getStringValue(data, "username"),
+		Message:        getStringValue(data, "message"),
+		ProfilePicture: getStringValue(data, "profilePicture"),
+		Email:          getStringValue(data, "email"),
+		RequestedAt:    getTimeValue(data, "requestedAt"),
+		Status:         getStringValue(data, "status"),
 	}
 }
 
 // 2. Map JoinRequest from Go struct to Firestore format
 func MapJoinRequestGoToFirestore(request models.JoinRequest) map[string]interface{} {
 	return map[string]interface{}{
-		"user_id":      request.UserID,
-		"user_name":    request.UserName,
-		"message":      request.Message,
-		"requested_at": request.RequestedAt,
-		"status":       request.Status,
+		"user_id":         request.UserID,
+		"username":        request.Username,
+		"message":         request.Message,
+		"profile_picture": request.ProfilePicture,
+		"email":           request.Email,
+		"requested_at":    request.RequestedAt,
+		"status":          request.Status,
 	}
 }
 
 // 3. Map JoinRequest from Firestore format to frontend format
 func MapJoinRequestFirestoreToFrontend(data map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
-		"userId":      getStringValue(data, "user_id"),
-		"userName":    getStringValue(data, "user_name"),
-		"message":     getStringValue(data, "message"),
-		"requestedAt": getTimeValue(data, "requested_at"),
-		"status":      getStringValue(data, "status"),
+		"userId":         getStringValue(data, "user_id"),
+		"username":       getStringValue(data, "username"),
+		"message":        getStringValue(data, "message"),
+		"profilePicture": getStringValue(data, "profile_picture"),
+		"email":          getStringValue(data, "email"),
+		"requestedAt":    getTimeValue(data, "requested_at"),
+		"status":         getStringValue(data, "status"),
 	}
 }
 
 // 4. Map JoinRequest from Firestore format to Go struct
 func MapJoinRequestFirestoreToGo(data map[string]interface{}) models.JoinRequest {
 	return models.JoinRequest{
-		UserID:      getStringValue(data, "user_id"),
-		UserName:    getStringValue(data, "user_name"),
-		Message:     getStringValue(data, "message"),
-		RequestedAt: getTimeValue(data, "requested_at"),
-		Status:      getStringValue(data, "status"),
+		UserID:         getStringValue(data, "user_id"),
+		Username:       getStringValue(data, "username"),
+		Message:        getStringValue(data, "message"),
+		ProfilePicture: getStringValue(data, "profile_picture"),
+		Email:          getStringValue(data, "email"),
+		RequestedAt:    getTimeValue(data, "requested_at"),
+		Status:         getStringValue(data, "status"),
 	}
 }
 
