@@ -341,7 +341,7 @@ func GetAllPublicProjects(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Query Firestore for projects with collaboration_type == "public"
-	iter := services.FirestoreClient.Collection("projects").Where("collaboration_type", "==", "public").Documents(ctx)
+	iter := services.FirestoreClient.Collection("projects").Where("collaboration_type", "in", []interface{}{"public", "Public"}).Documents(ctx)
 	var projects []map[string]interface{}
 
 	for {
