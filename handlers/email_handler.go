@@ -372,7 +372,7 @@ func SendWelcomeEmail(toEmail, username, logoURL string) error {
     </p>
 
     <p>
-      If you have any questions, don’t hesitate to reach out to our support team at <a href="mailto:support@letusconnect.com" style="color: #4A90E2;">support@letusconnect.com</a> or at <a href="https://letusconnect.vercel.app/contact-us" style="color: #4A90E2;">Online Contact Form</a> or at ..
+      If you have any questions, don’t hesitate to reach out to our support team at <a href="mailto:support@letusconnect.com" style="color: #4A90E2;">support@letusconnect.com</a> or at <a href="https://letusconnect.vercel.app/contact-us" style="color: #4A90E2;">Online Contact Form</a>.
     </p>
 
     <p>
