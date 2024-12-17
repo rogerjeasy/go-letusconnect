@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -79,6 +80,12 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 
 	projectData := doc.Data()
 
+	if projectData["status"] == "completed" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "This project has been completed. You cannot join a completed project.",
+		})
+	}
+
 	// Check if the user is the owner of the project
 	if projectData["owner_id"] == uid {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -96,6 +103,16 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		}
 	}
 
+	// Check if the user was previously rejected
+	rejectedParticipants := projectData["rejected_participants"].([]interface{})
+	for _, rejectedUID := range rejectedParticipants {
+		if rejectedUID == uid {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "Your request to join this project was previously rejected. Please contact the project owner for further assistance.",
+			})
+		}
+	}
+
 	// convert joinRequest to map[string]interface{} for Firestore
 	joinRequestMap := mappers.MapJoinRequestGoToFirestore(joinRequest)
 
@@ -109,8 +126,104 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		})
 	}
 
+	// Send confirmation email
+	projectName := projectData["title"].(string)
+	if err := SendJoinRequestSubmittedEmail(user["email"].(string), user["username"].(string), projectName); err != nil {
+		log.Printf("Error sending join request submitted email: %v", err)
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Join request submitted successfully",
+	})
+}
+
+// RemoveParticipantCollab handles removing a participant from a project
+func RemoveParticipantCollab(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Extract project ID and participant user ID from URL parameters
+	projectID := c.Params("id")
+	participantID := c.Params("participantId")
+	if projectID == "" || participantID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project ID and Participant ID are required",
+		})
+	}
+
+	ctx := context.Background()
+
+	// Fetch the project from Firestore
+	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+
+	projectData := doc.Data()
+	project := mappers.MapProjectFirestoreToGo(projectData)
+
+	// Check if the user is the project owner or an owner-level participant
+	isOwner := project.OwnerID == uid
+	for _, participant := range project.Participants {
+		if participant.UserID == uid && participant.Role == "owner" {
+			isOwner = true
+			break
+		}
+	}
+
+	if !isOwner {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You do not have permission to remove participants",
+		})
+	}
+
+	// Check if the participant exists in the project
+	participantExists := false
+	var updatedParticipants []map[string]interface{}
+
+	for _, participant := range projectData["participants"].([]interface{}) {
+		participantMap := participant.(map[string]interface{})
+		if participantMap["user_id"] == participantID {
+			participantExists = true
+			continue // Skip the participant to remove them
+		}
+		updatedParticipants = append(updatedParticipants, participantMap)
+	}
+
+	if !participantExists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Participant not found in the project",
+		})
+	}
+
+	// Update the participants list in Firestore
+	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+		{Path: "participants", Value: updatedParticipants},
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to remove participant",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Participant removed successfully",
 	})
 }
 
@@ -183,11 +296,27 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 		})
 	}
 
+	// Ensure join_requests is a valid slice
+	joinRequests, ok := projectData["join_requests"].([]interface{})
+	if !ok {
+		log.Printf("join_requests field is of unexpected type: %+v", projectData["join_requests"])
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Join requests data is invalid",
+		})
+	}
+
 	// Handle the join request based on action
 	var updatedJoinRequests []map[string]interface{}
-	for _, jr := range projectData["join_requests"].([]interface{}) {
-		jrMap := jr.(map[string]interface{})
+	participantExists := false
+
+	for _, jr := range joinRequests {
+		jrMap, ok := jr.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
 		if jrMap["user_id"] == userID {
+			participantExists = true
 			if requestData.Action == "accept" {
 				// Add the user as a participant with the provided attributes
 				newParticipant := map[string]interface{}{
@@ -206,11 +335,35 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 						"error": "Failed to add participant",
 					})
 				}
+				// Send notification email for accepted request
+				if err := SendJoinRequestAcceptedEmail(requestData.Email, requestData.Username, project.Title); err != nil {
+					log.Printf("Failed to send acceptance email: %v", err)
+				}
+			} else if requestData.Action == "reject" {
+				// Add the user ID to the RejectedParticipants list
+				_, err := services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+					{Path: "rejected_participants", Value: firestore.ArrayUnion(userID)},
+				})
+				if err != nil {
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+						"error": "Failed to add user to rejected participants",
+					})
+				}
+				// Send notification email for rejected request
+				if err := SendJoinRequestRejectedEmail(requestData.Email, requestData.Username, project.Title); err != nil {
+					log.Printf("Failed to send rejection email: %v", err)
+				}
 			}
-			// Skip adding the join request to updatedJoinRequests to remove it
+			// Skip adding this join request to updatedJoinRequests to remove it
 		} else {
 			updatedJoinRequests = append(updatedJoinRequests, jrMap)
 		}
+	}
+
+	if !participantExists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Join request not found",
+		})
 	}
 
 	// Update the join requests in Firestore to remove the processed request
@@ -241,7 +394,6 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": fmt.Sprintf("Join request %s successfully", actionPastTense),
 	})
-
 }
 
 // InviteUserCollab handles inviting a user to a project

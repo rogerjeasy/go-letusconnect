@@ -69,9 +69,18 @@ func SetupRoutes(app *fiber.App) {
 	projects.Post("/:id/join", handlers.JoinProjectCollab)
 	projects.Put("/:id/join-requests/:uid", handlers.AcceptRejectJoinRequestCollab)
 	projects.Post("/:id/invite", handlers.InviteUserCollab)
+	projects.Delete("/:id/participants/:uid", handlers.RemoveParticipantCollab)
+
 	// 3. Task Endpoints
 	projects.Post("/:id/tasks", handlers.AddTask)
 	projects.Put("/:id/tasks/:taskID", handlers.UpdateTask)
 	projects.Delete("/:id/tasks/:taskID", handlers.DeleteTask)
+
+	// newsletters
+	newsletters := api.Group("/newsletters")
+	newsletters.Post("/subscribe", handlers.SubscribeNewsletter)
+	newsletters.Post("/unsubscribe", handlers.UnsubscribeNewsletter)
+	newsletters.Get("/subscribers", handlers.GetAllSubscribers)
+	newsletters.Get("/subscribers/count", handlers.GetTotalSubscribers)
 
 }

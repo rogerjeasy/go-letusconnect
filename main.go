@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rogerjeasy/go-letusconnect/config"
 	"github.com/rogerjeasy/go-letusconnect/routes"
 	"github.com/rogerjeasy/go-letusconnect/services"
 
@@ -14,6 +15,8 @@ import (
 )
 
 func main() {
+	config.LoadConfig()
+
 	// Initialize Firebase
 	if err := services.InitializeFirebase(); err != nil {
 		log.Fatalf("Failed to initialize Firebase: %v", err)

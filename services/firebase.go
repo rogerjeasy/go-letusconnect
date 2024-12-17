@@ -11,6 +11,7 @@ import (
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/auth"
+	"github.com/rogerjeasy/go-letusconnect/config"
 	"google.golang.org/api/option"
 )
 
@@ -25,6 +26,7 @@ func InitializeFirebase() error {
 
 	// Retrieve the base64-encoded service account key from the environment variable
 	base64EncodedKey := os.Getenv("FIREBASE_SERVICE_ACCOUNT")
+	var opt option.ClientOption
 
 	// Decode the base64-encoded key
 	decodedKey, err := base64.StdEncoding.DecodeString(base64EncodedKey)
@@ -47,9 +49,14 @@ func InitializeFirebase() error {
 		return fmt.Errorf("failed to close temporary file: %v", err)
 	}
 
-	// Use the temporary file as the credentials file
-	opt := option.WithCredentialsFile(tempFile.Name())
-	// opt := option.WithCredentialsFile("C:/Users/rogej/Downloads/go-connect-4f9f8-firebase-adminsdk-3qjyg-2a778c1517.json")
+	if config.EnvServiceAccount == "local" {
+		// Use the hardcoded local credentials file path
+		opt = option.WithCredentialsFile(config.JsonServiceAccountPath)
+		log.Println("Using local Firebase credentials file")
+	} else {
+		// Use the temporary file as the credentials file
+		opt = option.WithCredentialsFile(tempFile.Name())
+	}
 
 	// Initialize Firebase app
 	app, err := firebase.NewApp(context.Background(), nil, opt)

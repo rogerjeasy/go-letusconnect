@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 
 	// "os"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"firebase.google.com/go/auth"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/rogerjeasy/go-letusconnect/config"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
@@ -158,6 +158,22 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
+	// Fetch the logo URL from Firestore (optional)
+	var logoURL string
+	logoDoc, err := services.FirestoreClient.Collection("config").Doc("logo").Get(ctx)
+	if err == nil && logoDoc.Exists() {
+		if url, ok := logoDoc.Data()["url"].(string); ok {
+			logoURL = url
+		}
+	}
+
+	// Send welcome email
+	err = SendWelcomeEmail(user.Email, user.Username, logoURL)
+	if err != nil {
+		log.Printf("Error sending welcome email: %v", err)
+		// Don't fail the registration process if email sending fails
+	}
+
 	// Generate JWT token
 	token, err := GenerateJWT(&user)
 	if err != nil {
@@ -180,18 +196,12 @@ func Register(c *fiber.Ctx) error {
 
 	// Return success response
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
-		"message": "User registered successfully",
+		"message": "You have successfully created an account",
 		"user":    frontendUser,
 		"token":   token,
 	})
 }
 
-// Login authenticates a user using Firebase Authentication
-
-// FirebaseSignInURL is the Firebase REST API endpoint for sign-in
-var FirebaseSignInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + os.Getenv("FIREBASE_API_KEY")
-
-// Login authenticates the user and returns a JWT token
 // Login authenticates the user and returns a JWT token
 func Login(c *fiber.Ctx) error {
 	var user models.User
@@ -225,7 +235,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	// Make the REST API request to Firebase
-	resp, err := http.Post(FirebaseSignInURL, "application/json", bytes.NewReader(payloadBytes))
+	resp, err := http.Post(config.FirebaseSignInURL, "application/json", bytes.NewReader(payloadBytes))
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid email or password",
@@ -286,4 +296,23 @@ func Login(c *fiber.Ctx) error {
 		"token":   token,
 		"user":    frontendUser,
 	})
+}
+
+// FetchPlatformLogoURL retrieves the platform's logo URL from Firestore
+func FetchPlatformLogoURL() (string, error) {
+	ctx := context.Background()
+	logoDoc, err := services.FirestoreClient.Collection("config").Doc("platform").Get(ctx)
+	if err != nil {
+		log.Printf("Error fetching platform logo: %v", err)
+		return "", err
+	}
+
+	// Retrieve the logo URL from the document
+	logoURL, ok := logoDoc.Data()["logo_url"].(string)
+	if !ok {
+		log.Printf("No logo URL found in Firestore")
+		return "", nil
+	}
+
+	return logoURL, nil
 }
