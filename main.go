@@ -22,6 +22,9 @@ func main() {
 		log.Fatalf("Failed to initialize Firebase: %v", err)
 	}
 
+	// Initialize Pusher
+	services.InitializePusher()
+
 	app := fiber.New()
 
 	// Enable CORS middleware

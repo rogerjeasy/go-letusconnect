@@ -83,4 +83,12 @@ func SetupRoutes(app *fiber.App) {
 	newsletters.Get("/subscribers", handlers.GetAllSubscribers)
 	newsletters.Get("/subscribers/count", handlers.GetTotalSubscribers)
 
+	// Pusher Routes
+	SetupPusherRoutes(app)
+
+	// Message Routes
+	messages := api.Group("/messages")
+	messages.Post("/send", handlers.SendMessage)
+	messages.Get("/", handlers.GetMessages)
+
 }

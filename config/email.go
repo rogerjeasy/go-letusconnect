@@ -18,6 +18,11 @@ var (
 	FirebaseSignInURL      string
 	EnvServiceAccount      string
 	JsonServiceAccountPath string
+
+	PusherAppID   string
+	PusherKey     string
+	PusherSecret  string
+	PusherCluster string
 )
 
 func LoadConfig() {
@@ -37,6 +42,11 @@ func LoadConfig() {
 	FirebaseAPiKey = os.Getenv("FIREBASE_API_KEY")
 	EnvServiceAccount = os.Getenv("ENV_SERVICE_ACCOUNT_KEY")
 	JsonServiceAccountPath = os.Getenv("JSON_SERVICE_ACCOUNT_PATH")
+
+	PusherAppID = os.Getenv("PUSHER_APP_ID")
+	PusherKey = os.Getenv("PUSHER_KEY")
+	PusherSecret = os.Getenv("PUSHER_SECRET")
+	PusherCluster = os.Getenv("PUSHER_CLUSTER")
 
 	// Initialize FirebaseSignInURL after loading the API key
 	FirebaseSignInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + FirebaseAPiKey
