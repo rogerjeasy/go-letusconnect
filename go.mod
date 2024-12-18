@@ -2,6 +2,8 @@ module github.com/rogerjeasy/go-letusconnect
 
 go 1.23.3
 
+require github.com/joho/godotenv v1.5.1
+
 require (
 	cel.dev/expr v0.16.1 // indirect
 	cloud.google.com/go v0.116.0 // indirect
@@ -34,7 +36,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.0 // indirect
-	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/labstack/echo/v4 v4.12.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
@@ -43,6 +44,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pusher/pusher-http-go v4.0.1+incompatible // indirect
+	github.com/pusher/pusher-http-go/v5 v5.1.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect

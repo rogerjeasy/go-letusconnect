@@ -3,7 +3,7 @@ package services
 import (
 	"log"
 
-	"github.com/pusher/pusher-http-go"
+	"github.com/pusher/pusher-http-go/v5"
 	"github.com/rogerjeasy/go-letusconnect/config"
 )
 

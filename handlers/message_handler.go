@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -51,10 +52,22 @@ func SendMessage(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send message"})
 	}
 
-	// Trigger Pusher event for real-time notification
-	err = services.PusherClient.Trigger("messages-channel", "new-message", mappers.MapMessageGoToFrontend(message))
+	// Create a sorted list of sender and receiver IDs
+	ids := []string{message.SenderID, message.ReceiverID}
+	sort.Strings(ids)
+	channelName := "private-messages-" + strings.Join(ids, "-")
+
+	// Trigger Pusher event with the consistent channel name
+	err = services.PusherClient.Trigger(
+		channelName,
+		"new-message",
+		mappers.MapMessageGoToFrontend(message),
+	)
+
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to trigger event"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to trigger event",
+		})
 	}
 
 	return c.JSON(fiber.Map{"success": "Message sent successfully", "message": message})
