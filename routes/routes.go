@@ -90,5 +90,6 @@ func SetupRoutes(app *fiber.App) {
 	messages := api.Group("/messages")
 	messages.Post("/send", handlers.SendMessage)
 	messages.Get("/", handlers.GetMessages)
+	messages.Post("/typing", handlers.SendTyping)
 
 }

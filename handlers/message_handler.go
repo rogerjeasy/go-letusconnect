@@ -124,3 +124,61 @@ func GetMessages(c *fiber.Ctx) error {
 
 	return c.JSON(frontendMessages)
 }
+
+// SendTyping handles the typing event and triggers a Pusher event
+func SendTyping(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required. Please log in",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token. Please log in again",
+		})
+	}
+
+	// Parse request payload
+	var payload struct {
+		ReceiverID string `json:"receiverId"`
+	}
+
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Ensure receiver ID is provided
+	if payload.ReceiverID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "receiverId is required",
+		})
+	}
+
+	// Create a sorted list of sender and receiver IDs
+	ids := []string{uid, payload.ReceiverID}
+	sort.Strings(ids)
+	channelName := "private-messages-" + strings.Join(ids, "-")
+
+	// Trigger Pusher event with the consistent channel name
+	err = services.PusherClient.Trigger(channelName, "user-typing", map[string]string{
+		"senderId":   uid,
+		"receiverId": payload.ReceiverID,
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to send typing notification",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": "Typing notification sent",
+	})
+}
