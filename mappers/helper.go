@@ -283,3 +283,159 @@ func getStringArrayValue(data map[string]interface{}, key string) []string {
 	}
 	return []string{}
 }
+
+// func getMapValue(data map[string]interface{}, key string) map[string]bool {
+// 	if val, ok := data[key].(map[string]interface{}); ok {
+// 		readStatus := make(map[string]bool)
+// 		for k, v := range val {
+// 			if b, ok := v.(bool); ok {
+// 				readStatus[k] = b
+// 			}
+// 		}
+// 		return readStatus
+// 	}
+// 	return nil
+// }
+
+// func getStringPointer(data map[string]interface{}, key string) *string {
+// 	if val, ok := data[key].(string); ok {
+// 		return &val
+// 	}
+// 	return nil
+// }
+
+// func getSliceValue(data map[string]interface{}, key string) []string {
+// 	if val, ok := data[key].([]interface{}); ok {
+// 		var result []string
+// 		for _, v := range val {
+// 			if str, ok := v.(string); ok {
+// 				result = append(result, str)
+// 			}
+// 		}
+// 		return result
+// 	}
+// 	return nil
+// }
+
+// func getMapReactions(data map[string]interface{}, key string) map[string]int {
+// 	if val, ok := data[key].(map[string]interface{}); ok {
+// 		reactions := make(map[string]int)
+// 		for k, v := range val {
+// 			if i, ok := v.(float64); ok {
+// 				reactions[k] = int(i)
+// 			}
+// 		}
+// 		return reactions
+// 	}
+// 	return nil
+// }
+
+// Helper function to safely get a boolean value from a map
+func getBoolValue(data map[string]interface{}, key string) bool {
+	if val, ok := data[key].(bool); ok {
+		return val
+	}
+	return false
+}
+
+// Helper function to safely get a map of read status
+func getReadStatusMap(data map[string]interface{}, key string) map[string]bool {
+	if val, ok := data[key].(map[string]interface{}); ok {
+		readStatus := make(map[string]bool)
+		for k, v := range val {
+			if status, ok := v.(bool); ok {
+				readStatus[k] = status
+			}
+		}
+		return readStatus
+	}
+	return nil
+}
+
+// Helper function to safely get a map of reactions
+func getReactionsMap(data map[string]interface{}, key string) map[string]int {
+	if val, ok := data[key].(map[string]interface{}); ok {
+		reactions := make(map[string]int)
+		for k, v := range val {
+			if count, ok := v.(float64); ok {
+				reactions[k] = int(count)
+			}
+		}
+		return reactions
+	}
+	return nil
+}
+
+// Helper function to safely get an optional string pointer
+func getOptionalStringValue(data map[string]interface{}, key string) *string {
+	if val, ok := data[key].(string); ok {
+		return &val
+	}
+	return nil
+}
+
+// Helper function to get time value as a string
+func getTimeStringValue(data map[string]interface{}, key string) string {
+	if val, ok := data[key].(string); ok {
+		return val
+	}
+	return time.Now().Format(time.RFC3339)
+}
+
+// getDirectMessagesArrayFromFrontend converts frontend direct messages array to Go struct array
+func getDirectMessagesArrayFromFrontend(data map[string]interface{}, key string) []models.DirectMessage {
+	var directMessages []models.DirectMessage
+
+	if messages, exists := data[key]; exists {
+		if messageArray, ok := messages.([]interface{}); ok {
+			for _, msg := range messageArray {
+				if msgMap, ok := msg.(map[string]interface{}); ok {
+					directMessages = append(directMessages, MapDirectMessageFrontendToGo(msgMap))
+				}
+			}
+		}
+	}
+	return directMessages
+}
+
+// mapDirectMessagesArrayToFirestore converts Go struct direct messages array to Firestore format
+func mapDirectMessagesArrayToFirestore(messages []models.DirectMessage) []map[string]interface{} {
+	var result []map[string]interface{}
+
+	for _, msg := range messages {
+		result = append(result, MapDirectMessageGoToFirestore(msg))
+	}
+	return result
+}
+
+// getDirectMessagesArrayFromFirestore converts Firestore direct messages array to frontend format
+func getDirectMessagesArrayFromFirestore(data map[string]interface{}, key string) []map[string]interface{} {
+	var result []map[string]interface{}
+
+	if messages, exists := data[key]; exists {
+		if messageArray, ok := messages.([]interface{}); ok {
+			for _, msg := range messageArray {
+				if msgMap, ok := msg.(map[string]interface{}); ok {
+					result = append(result, MapDirectMessageFirestoreToFrontend(msgMap))
+				}
+			}
+		}
+	}
+	return result
+}
+
+// getDirectMessagesArrayFromFirestoreToGo converts Firestore direct messages array to Go struct format
+func getDirectMessagesArrayFromFirestoreToGo(data map[string]interface{}, key string) []models.DirectMessage {
+	var directMessages []models.DirectMessage
+
+	if messages, exists := data[key]; exists {
+		if messageArray, ok := messages.([]interface{}); ok {
+			for _, msg := range messageArray {
+				if msgMap, ok := msg.(map[string]interface{}); ok {
+					directMessages = append(directMessages, MapDirectMessageFirestoreToGo(msgMap))
+				}
+			}
+		}
+	}
+	return directMessages
+}
