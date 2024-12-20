@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -206,6 +207,7 @@ func SendDirectMessage(c *fiber.Ctx) error {
 
 	message := mappers.MapDirectMessageFrontendToGo(payload)
 	message.ID = uuid.New().String()
+	message.ReadStatus = map[string]bool{message.SenderID: true, message.ReceiverID: false}
 
 	if message.SenderID != uid {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You can only send messages as yourself."})
@@ -254,6 +256,24 @@ func SendDirectMessage(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to trigger event.",
+		})
+	}
+
+	// Trigger Pusher event for notification
+	notificationChannel := "user-notifications-" + message.ReceiverID
+	err = services.PusherClient.Trigger(
+		notificationChannel,
+		"new-notification",
+		map[string]string{
+			"senderName": message.SenderName,
+			"content":    message.Content,
+			"senderID":   message.SenderID,
+		},
+	)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to trigger notification event.",
 		})
 	}
 
@@ -357,6 +377,25 @@ func SendGroupMessage(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You can only send messages as yourself."})
 	}
 
+	// Fetch the list of group members (assuming there's a function to get group members)
+	groupMembers, err := services.GetGroupMembers(message.ProjectID, message.GroupID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch group members.",
+		})
+	}
+
+	// Initialize ReadStatus for all group members
+	message.ReadStatus = make(map[string]bool)
+	for _, memberID := range groupMembers {
+		// Set the sender's ReadStatus to true and others to false
+		if memberID == message.SenderID {
+			message.ReadStatus[memberID] = true
+		} else {
+			message.ReadStatus[memberID] = false
+		}
+	}
+
 	// Add message to Firestore
 	_, _, err = services.FirestoreClient.Collection("group_messages").Add(context.Background(), mappers.MapGroupMessageGoToFirestore(message))
 	if err != nil {
@@ -383,4 +422,140 @@ func SendGroupMessage(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"success": "Group message sent successfully.", "message": message})
+}
+
+// GetUnreadMessagesCount fetches the count of unread direct messages for the logged-in user
+func GetUnreadMessagesCount(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required. Please log in.",
+		})
+	}
+
+	// Validate token and get the user ID (UID)
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token. Please log in again.",
+		})
+	}
+
+	// Query Firestore for all messages documents
+	iter := services.FirestoreClient.Collection("messages").Documents(context.Background())
+
+	unreadCount := 0
+
+	for {
+		doc, err := iter.Next()
+		if err != nil {
+			break
+		}
+
+		var messages models.Messages
+		if err := doc.DataTo(&messages); err != nil {
+			log.Println("Error parsing document:", err)
+			continue
+		}
+
+		for _, message := range messages.DirectMessages {
+			if message.ReceiverID == uid {
+				if read, exists := message.ReadStatus[uid]; !exists || !read {
+					unreadCount++
+				}
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"unreadCount": unreadCount,
+	})
+}
+
+// MarkMessagesAsRead updates the read status of direct messages for the logged-in user
+func MarkMessagesAsRead(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required. Please log in.",
+		})
+	}
+
+	// Validate token and get the user ID (UID)
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token. Please log in again.",
+		})
+	}
+
+	var payload struct {
+		SenderID string `json:"senderId"`
+	}
+
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload.",
+		})
+	}
+
+	if payload.SenderID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Sender ID is required.",
+		})
+	}
+
+	// Create a sorted list of sender and receiver IDs for consistent channel ID
+	ids := []string{uid, payload.SenderID}
+	sort.Strings(ids)
+	channelID := strings.Join(ids, "-")
+
+	docRef := services.FirestoreClient.Collection("messages").Doc(channelID)
+
+	// Fetch the document from Firestore
+	docSnapshot, err := docRef.Get(context.Background())
+	if err != nil || !docSnapshot.Exists() {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "No messages found for the provided sender and receiver IDs.",
+		})
+	}
+
+	// Convert Firestore data to the Messages struct
+	var messages models.Messages
+	if err := docSnapshot.DataTo(&messages); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to parse messages.",
+		})
+	}
+
+	// Update the ReadStatus for all messages where the receiver is the logged-in user
+	updated := false
+	for i, message := range messages.DirectMessages {
+		if message.ReceiverID == uid {
+			if read, exists := message.ReadStatus[uid]; !exists || !read {
+				messages.DirectMessages[i].ReadStatus[uid] = true
+				updated = true
+			}
+		}
+	}
+
+	if !updated {
+		return c.JSON(fiber.Map{
+			"success": "No unread messages to mark as read.",
+		})
+	}
+
+	// Update the document in Firestore
+	_, err = docRef.Set(context.Background(), mappers.MapMessagesGoToFirestore(messages))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update read status.",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": "Messages marked as read successfully.",
+	})
 }

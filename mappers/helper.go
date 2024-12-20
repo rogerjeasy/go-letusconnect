@@ -340,16 +340,26 @@ func getBoolValue(data map[string]interface{}, key string) bool {
 
 // Helper function to safely get a map of read status
 func getReadStatusMap(data map[string]interface{}, key string) map[string]bool {
-	if val, ok := data[key].(map[string]interface{}); ok {
+	value, exists := data[key]
+	if !exists {
+		return map[string]bool{}
+	}
+
+	switch v := value.(type) {
+	case bool:
+		// If it's a single boolean, assume it's the receiver's unread status
+		return map[string]bool{"default": v}
+	case map[string]interface{}:
 		readStatus := make(map[string]bool)
-		for k, v := range val {
-			if status, ok := v.(bool); ok {
-				readStatus[k] = status
+		for k, val := range v {
+			if b, ok := val.(bool); ok {
+				readStatus[k] = b
 			}
 		}
 		return readStatus
+	default:
+		return map[string]bool{}
 	}
-	return nil
 }
 
 // Helper function to safely get a map of reactions
