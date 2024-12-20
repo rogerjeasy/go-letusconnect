@@ -4,8 +4,54 @@ import (
 	"context"
 	"errors"
 
+	"github.com/rogerjeasy/go-letusconnect/mappers"
+	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/api/iterator"
 )
+
+// GetUserByEmail fetches user data by their email and maps it to models.User
+func GetUserByEmail(email string) (*models.User, error) {
+	ctx := context.Background()
+
+	// Query the Firestore collection to find a user document with the given email
+	query := FirestoreClient.Collection("users").Where("email", "==", email).Limit(1).Documents(ctx)
+	defer query.Stop()
+
+	doc, err := query.Next()
+	if err == iterator.Done {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, errors.New("failed to fetch user data")
+	}
+
+	// Map the Firestore document data to models.User
+	data := doc.Data()
+	user := mappers.MapFrontendToUser(data)
+	return &user, nil
+}
+
+// GetUserByUsername fetches user data by their username and maps it to models.User
+func GetUserByUsername(username string) (*models.User, error) {
+	ctx := context.Background()
+
+	// Query the Firestore collection to find a user document with the given username
+	query := FirestoreClient.Collection("users").Where("username", "==", username).Limit(1).Documents(ctx)
+	defer query.Stop()
+
+	doc, err := query.Next()
+	if err == iterator.Done {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, errors.New("failed to fetch user data")
+	}
+
+	// Map the Firestore document data to models.User
+	data := doc.Data()
+	user := mappers.MapFrontendToUser(data)
+	return &user, nil
+}
 
 // GetUserRole retrieves the roles of a user by their UID from the "users" collection in Firestore.
 func GetUserRole(uid string) ([]string, error) {
@@ -81,7 +127,7 @@ func GetUsernameByUID(uid string) (string, error) {
 	return usernameStr, nil
 }
 
-// Get User info by UID
+// GetUserByUID fetches user data by their UID
 func GetUserByUID(uid string) (map[string]interface{}, error) {
 	ctx := context.Background()
 
@@ -100,6 +146,5 @@ func GetUserByUID(uid string) (map[string]interface{}, error) {
 
 	// Extract the user data from the document
 	data := doc.Data()
-
 	return data, nil
 }

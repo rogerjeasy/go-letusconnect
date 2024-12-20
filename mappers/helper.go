@@ -196,20 +196,26 @@ func getInvitedUsersArray(data map[string]interface{}, key string) []models.Invi
 
 	if value, ok := data[key]; ok {
 		// Ensure the value is a slice of interfaces
-		if participants, ok := value.([]interface{}); ok {
-			for _, v := range participants {
-				if userMap, ok := v.(map[string]interface{}); ok {
-					user := MapInvitedUserFrontendToGo(userMap)
-					result = append(result, user)
-				} else {
-					fmt.Println("Error: participant is not a map[string]interface{}")
-				}
+		invitedUsers, ok := value.([]interface{})
+		if !ok {
+			fmt.Println("Error: invited_users is not a []interface{}")
+			return result
+		}
+
+		for i, v := range invitedUsers {
+			userMap, ok := v.(map[string]interface{})
+			if !ok {
+				fmt.Printf("Error: invited_users[%d] is not a map[string]interface{}\n", i)
+				continue
 			}
-		} else {
-			fmt.Println("Error: participants is not a []interface{}")
+
+			user := MapInvitedUserFirestoreToGo(userMap)
+			fmt.Printf("Parsed invited user[%d]: %+v\n", i, user)
+
+			result = append(result, user)
 		}
 	} else {
-		fmt.Println("Error: participants key not found in data")
+		fmt.Println("Error: invited_users key not found in data")
 	}
 
 	return result

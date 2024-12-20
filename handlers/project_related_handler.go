@@ -451,45 +451,62 @@ func InviteUserCollab(c *fiber.Ctx) error {
 
 	// Parse the request payload for the user to invite
 	var requestData struct {
-		UserID string `json:"user_id"`
+		EmailOrUsername string `json:"emailOrUsername"`
+		Role            string `json:"role"`
 	}
-	if err := c.BodyParser(&requestData); err != nil || requestData.UserID == "" {
+	if err := c.BodyParser(&requestData); err != nil || requestData.EmailOrUsername == "" || requestData.Role == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload or missing user_id",
+			"error": "Invalid request payload or missing fields",
 		})
+	}
+
+	var user *models.User
+
+	if strings.Contains(requestData.EmailOrUsername, "@") {
+		// Handle invitation by email
+		user, err = services.GetUserByEmail(requestData.EmailOrUsername)
+	} else {
+		// Handle invitation by username
+		user, err = services.GetUserByUsername(requestData.EmailOrUsername)
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Initialize invited_users if nil
+	invitedUsersData, ok := projectData["invited_users"].([]interface{})
+	if !ok || invitedUsersData == nil {
+		fmt.Println("invited_users is nil or not a []interface{}. Initializing as empty slice.")
+		invitedUsersData = []interface{}{}
 	}
 
 	// Check if the user is already in the invited_users list
-	username, err := services.GetUsernameByUID(requestData.UserID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch the user's details",
-		})
-	}
-
-	// Convert invited_users from Firestore format to Go struct format
-	for _, invitedUser := range projectData["invited_users"].([]interface{}) {
-		invitedUserMap, ok := invitedUser.(map[string]interface{})
+	for _, existingUser := range invitedUsersData {
+		existingUserMap, ok := existingUser.(map[string]interface{})
 		if !ok {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to parse invited users",
+				"error": "Invalid format for invited user",
 			})
 		}
 
-		invitedUserStruct := mappers.MapInvitedUserFirestoreToGo(invitedUserMap)
-
-		if invitedUserStruct.UserID == requestData.UserID {
+		if existingUserMap["user_id"] == user.UID {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": fmt.Sprintf("%s has already been invited to this project", username),
+				"error": fmt.Sprintf("%s has already been invited to this project", user.Username),
 			})
 		}
 	}
 
 	// Add the user to invited_users
 	invite := map[string]interface{}{
-		"user_id":   requestData.UserID,
-		"role":      "invited",
-		"joined_at": time.Now().Format(time.RFC3339),
+		"user_id":         user.UID,
+		"username":        user.Username,
+		"email":           user.Email,
+		"profile_picture": user.ProfilePicture,
+		"role":            requestData.Role,
+		"joined_at":       time.Now().Format(time.RFC3339),
 	}
 
 	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
@@ -503,7 +520,8 @@ func InviteUserCollab(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "User invited successfully",
+		"message":     "User invited successfully",
+		"invitedUser": invite,
 	})
 }
 
