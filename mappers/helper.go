@@ -210,7 +210,7 @@ func getInvitedUsersArray(data map[string]interface{}, key string) []models.Invi
 			}
 
 			user := MapInvitedUserFirestoreToGo(userMap)
-			fmt.Printf("Parsed invited user[%d]: %+v\n", i, user)
+			// fmt.Printf("Parsed invited user[%d]: %+v\n", i, user)
 
 			result = append(result, user)
 		}
@@ -229,7 +229,7 @@ func getParticipantsArray(data map[string]interface{}, key string) []models.Part
 		if participants, ok := value.([]interface{}); ok {
 			for _, v := range participants {
 				if userMap, ok := v.(map[string]interface{}); ok {
-					user := MapParticipantFrontendToGo(userMap)
+					user := MapParticipantFirestoreToGo(userMap)
 					result = append(result, user)
 				} else {
 					fmt.Println("Error: participant is not a map[string]interface{}")

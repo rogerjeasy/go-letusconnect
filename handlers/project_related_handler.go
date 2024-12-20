@@ -476,6 +476,15 @@ func InviteUserCollab(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if the user is already in the participants list
+	for _, participant := range project.Participants {
+		if participant.UserID == user.UID {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("%s is already a participant in this project", user.Username),
+			})
+		}
+	}
+
 	// Initialize invited_users if nil
 	invitedUsersData, ok := projectData["invited_users"].([]interface{})
 	if !ok || invitedUsersData == nil {
