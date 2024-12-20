@@ -263,11 +263,13 @@ func SendDirectMessage(c *fiber.Ctx) error {
 	notificationChannel := "user-notifications-" + message.ReceiverID
 	err = services.PusherClient.Trigger(
 		notificationChannel,
-		"new-notification",
+		"update-unread-count",
 		map[string]string{
 			"senderName": message.SenderName,
 			"content":    message.Content,
 			"senderID":   message.SenderID,
+			"receiverId": message.ReceiverID,
+			"messageId":  message.ID,
 		},
 	)
 
@@ -424,7 +426,8 @@ func SendGroupMessage(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": "Group message sent successfully.", "message": message})
 }
 
-// GetUnreadMessagesCount fetches the count of unread direct messages for the logged-in user
+// GetUnreadMessagesCount fetches the count of unread direct messages for the logged-in user.
+// If a senderId query parameter is provided, it counts unread messages only from that sender.
 func GetUnreadMessagesCount(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
@@ -441,6 +444,9 @@ func GetUnreadMessagesCount(c *fiber.Ctx) error {
 			"error": "Invalid token. Please log in again.",
 		})
 	}
+
+	// Optional sender ID parameter to filter unread messages by sender
+	senderID := c.Query("senderId")
 
 	// Query Firestore for all messages documents
 	iter := services.FirestoreClient.Collection("messages").Documents(context.Background())
@@ -460,7 +466,14 @@ func GetUnreadMessagesCount(c *fiber.Ctx) error {
 		}
 
 		for _, message := range messages.DirectMessages {
+			// Check if the message is for the logged-in user
 			if message.ReceiverID == uid {
+				// If senderID is provided, filter by senderID
+				if senderID != "" && message.SenderID != senderID {
+					continue
+				}
+
+				// Check if the ReadStatus map contains the user's ID and if the value is false
 				if read, exists := message.ReadStatus[uid]; !exists || !read {
 					unreadCount++
 				}
@@ -552,6 +565,22 @@ func MarkMessagesAsRead(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update read status.",
+		})
+	}
+
+	// Trigger a Pusher event to notify the frontend to update the unread count
+	notificationChannel := "user-notifications-" + uid
+	err = services.PusherClient.Trigger(
+		notificationChannel,
+		"message-read",
+		map[string]interface{}{
+			"timestamp": time.Now(),
+		},
+	)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to trigger notification event.",
 		})
 	}
 
