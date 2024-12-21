@@ -23,6 +23,8 @@ var (
 	PusherKey     string
 	PusherSecret  string
 	PusherCluster string
+
+	CloudinaryURL string
 )
 
 func LoadConfig() {
@@ -50,4 +52,6 @@ func LoadConfig() {
 
 	// Initialize FirebaseSignInURL after loading the API key
 	FirebaseSignInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + FirebaseAPiKey
+
+	CloudinaryURL = os.Getenv("CLOUDINARY_URL")
 }

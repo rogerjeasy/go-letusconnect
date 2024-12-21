@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 
 	// "os"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"firebase.google.com/go/auth"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/rogerjeasy/go-letusconnect/config"
@@ -24,10 +26,16 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-// Secret key for JWT (use environment variables in production)
 var jwtSecretKey = []byte("your_jwt_secret_key")
 
-// GenerateJWT generates a new JWT token
+func generateRandomAvatar() string {
+
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	uniqueID := fmt.Sprintf("%x", rng.Int63())
+
+	return fmt.Sprintf("https://picsum.photos/seed/%s/150/150?nature", uniqueID)
+}
+
 func GenerateJWT(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
 		"uid":   user.UID,
@@ -38,7 +46,6 @@ func GenerateJWT(user *models.User) (string, error) {
 	return token.SignedString(jwtSecretKey)
 }
 
-// Parse and validate the JWT token
 func validateToken(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -68,17 +75,14 @@ func FormatTime(t time.Time, layout string) string {
 	return t.Format(layout)
 }
 
-// Register creates a new user in Firebase Authentication and Firestore
 func Register(c *fiber.Ctx) error {
-	// Parse the request body into a map
 	var requestData map[string]interface{}
 	if err := c.BodyParser(&requestData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
 
-	// Map the frontend data to the User struct
 	user := mappers.MapFrontendToUser(requestData)
 
 	// Validate required fields
@@ -124,6 +128,21 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
+	randomAvatarURL := generateRandomAvatar()
+
+	// Upload the generated avatar to Cloudinary
+	cld := services.CloudinaryClient
+	uploadResult, err := cld.Upload.Upload(ctx, randomAvatarURL, uploader.UploadParams{
+		PublicID: fmt.Sprintf("users/%s/avatar", user.Username),
+		Folder:   "users/avatars",
+	})
+	if err != nil {
+		log.Printf("Error uploading avatar to Cloudinary: %v", err)
+		user.ProfilePicture = randomAvatarURL
+	} else {
+		user.ProfilePicture = uploadResult.SecureURL
+	}
+
 	// Create user in Firebase Authentication
 	authUser, err := services.FirebaseAuth.CreateUser(ctx, (&auth.UserToCreate{}).
 		Email(user.Email).
@@ -139,8 +158,7 @@ func Register(c *fiber.Ctx) error {
 	user.UID = authUser.UID
 	currentTime := time.Now()
 	customFormat := "Monday, Jan 2, 2006 at 3:04 PM"
-	formattedTime := FormatTime(currentTime, customFormat)
-	user.AccountCreatedAt = formattedTime
+	user.AccountCreatedAt = FormatTime(currentTime, customFormat)
 	user.IsActive = true
 	user.IsVerified = false
 	user.Role = []string{"user"}
@@ -158,17 +176,8 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
-	// Fetch the logo URL from Firestore (optional)
-	var logoURL string
-	logoDoc, err := services.FirestoreClient.Collection("config").Doc("logo").Get(ctx)
-	if err == nil && logoDoc.Exists() {
-		if url, ok := logoDoc.Data()["url"].(string); ok {
-			logoURL = url
-		}
-	}
-
 	// Send welcome email
-	err = SendWelcomeEmail(user.Email, user.Username, logoURL)
+	err = SendWelcomeEmail(user.Email, user.Username, "")
 	if err != nil {
 		log.Printf("Error sending welcome email: %v", err)
 		// Don't fail the registration process if email sending fails
@@ -264,15 +273,18 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	var dbUser models.User
+	var dbUser map[string]interface{}
 	if err := doc.DataTo(&dbUser); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to retrieve user data",
 		})
 	}
 
+	// Convert Firestore data to the `models.User` struct
+	backendUser := mappers.MapBackendToUser(dbUser)
+
 	// Generate JWT token
-	token, err := GenerateJWT(&dbUser)
+	token, err := GenerateJWT(&backendUser)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate token",
@@ -289,7 +301,7 @@ func Login(c *fiber.Ctx) error {
 	})
 
 	// Map backend user to frontend format
-	frontendUser := mappers.MapUserBackendToFrontend(mappers.MapUserFrontendToBackend(&dbUser))
+	frontendUser := mappers.MapUserToFrontend(&backendUser)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "Login successful",

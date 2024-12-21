@@ -96,4 +96,11 @@ func SetupRoutes(app *fiber.App) {
 	messages.Get("/direct", handlers.GetDirectMessages)
 	messages.Get("/unread", handlers.GetUnreadMessagesCount)
 	messages.Post("/mark-as-read", handlers.MarkMessagesAsRead)
+
+	// Media File Routes
+	mediaFiles := api.Group("/media-files")
+	mediaFiles.Post("/upload-images", handlers.UploadImageHandler)
+	mediaFiles.Post("/upload-videos", handlers.UploadVideoHandler)
+	mediaFiles.Post("/upload-pdf", handlers.UploadPDFHandler)
+
 }

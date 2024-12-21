@@ -528,6 +528,17 @@ func InviteUserCollab(c *fiber.Ctx) error {
 		})
 	}
 
+	// Send invitation email
+	projectName := projectData["title"].(string)
+	ownernerName, err := services.GetUsernameByUID(uid)
+	if err != nil {
+		log.Printf("Error fetching project owner's username: %v", err)
+		ownernerName = "Project Owner"
+	}
+	if err := SendProjectInvitationEmail(user.Email, user.Username, projectName, ownernerName); err != nil {
+		log.Printf("Error sending project invitation email: %v", err)
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message":     "User invited successfully",
 		"invitedUser": invite,

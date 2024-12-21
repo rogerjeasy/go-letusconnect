@@ -25,6 +25,9 @@ func main() {
 	// Initialize Pusher
 	services.InitializePusher()
 
+	// Initialize Cloudinary
+	services.InitCloudinary()
+
 	app := fiber.New()
 
 	// Enable CORS middleware

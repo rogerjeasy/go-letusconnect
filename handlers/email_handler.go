@@ -491,3 +491,78 @@ func SendJoinRequestSubmittedEmail(toEmail, userName, projectName string) error 
 
 	return sendEmail(toEmail, subject, body)
 }
+
+// SendProjectInvitationEmail sends an email to a user who has been invited to join a project
+func SendProjectInvitationEmail(toEmail, userName, projectName, inviterName string) error {
+	subject := "You’ve Been Invited to Join a Project on LetUsConnect!"
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #333333;
+      background-color: #f9f9f9;
+      padding: 20px;
+      text-align: center;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      color: #4A90E2;
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    .button {
+      display: inline-block;
+      background-color: #4A90E2;
+      color: #ffffff;
+      padding: 12px 24px;
+      margin: 20px 0;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #777777;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>You've Been Invited, %s! 🎉</h2>
+    <p>
+      <strong>%s</strong> has invited you to join the project: <strong>"%s"</strong>.
+    </p>
+    <p>
+      This is a great opportunity to collaborate, contribute your skills, and be part of an exciting project.
+    </p>
+    <p>
+      Click the button below to accept the invitation and join the project team.
+    </p>
+    <a href="https://letusconnect.vercel.app/projects/%s" class="button">Accept Invitation</a>
+    <p>
+      If you’re not sure or have questions, feel free to reach out to <strong>%s</strong> or visit the project page for more details.
+    </p>
+    <p class="footer">
+      Best regards, <br>
+      <strong>The LetUsConnect Team</strong>
+    </p>
+  </div>
+</body>
+</html>`, userName, inviterName, projectName, projectName, inviterName)
+
+	return sendEmail(toEmail, subject, body)
+}

@@ -101,6 +101,70 @@ func MapFrontendToUser(data map[string]interface{}) models.User {
 	}
 }
 
+// MapBackendToUser maps Firestore User data to the User model struct
+func MapBackendToUser(data map[string]interface{}) models.User {
+	return models.User{
+		UID:              getStringValue(data, "uid"),
+		Username:         getStringValue(data, "username"),
+		FirstName:        getStringValue(data, "first_name"),
+		LastName:         getStringValue(data, "last_name"),
+		Email:            getStringValue(data, "email"),
+		PhoneNumber:      getStringValue(data, "phone_number"),
+		ProfilePicture:   getStringValue(data, "profile_picture"),
+		Bio:              getStringValue(data, "bio"),
+		Role:             getStringArrayValue(data, "role"),
+		GraduationYear:   getIntValueSafe(data, "graduation_year"),
+		CurrentJobTitle:  getStringValue(data, "current_job_title"),
+		AreasOfExpertise: getStringArrayValue(data, "areas_of_expertise"),
+		Interests:        getStringArrayValue(data, "interests"),
+		LookingForMentor: getBoolValueSafe(data, "looking_for_mentor"),
+		WillingToMentor:  getBoolValueSafe(data, "willing_to_mentor"),
+		ConnectionsMade:  getIntValueSafe(data, "connections_made"),
+		AccountCreatedAt: getStringValue(data, "account_creation_date"),
+		IsActive:         getBoolValueSafe(data, "is_active"),
+		IsVerified:       getBoolValueSafe(data, "is_verified"),
+		Program:          getStringValue(data, "program"),
+		DateOfBirth:      getStringValue(data, "date_of_birth"),
+		PhoneCode:        getStringValue(data, "phone_code"),
+		Languages:        getStringArrayValue(data, "languages"),
+		Skills:           getStringArrayValue(data, "skills"),
+		Certifications:   getStringArrayValue(data, "certifications"),
+		Projects:         getStringArrayValue(data, "projects"),
+	}
+}
+
+// MapUserToFrontend maps a User model struct to frontend format (camelCase)
+func MapUserToFrontend(user *models.User) map[string]interface{} {
+	return map[string]interface{}{
+		"uid":              user.UID,
+		"username":         user.Username,
+		"firstName":        user.FirstName,
+		"lastName":         user.LastName,
+		"email":            user.Email,
+		"phoneNumber":      user.PhoneNumber,
+		"profilePicture":   user.ProfilePicture,
+		"bio":              user.Bio,
+		"role":             user.Role,
+		"graduationYear":   user.GraduationYear,
+		"currentJobTitle":  user.CurrentJobTitle,
+		"areasOfExpertise": user.AreasOfExpertise,
+		"interests":        user.Interests,
+		"lookingForMentor": user.LookingForMentor,
+		"willingToMentor":  user.WillingToMentor,
+		"connectionsMade":  user.ConnectionsMade,
+		"accountCreatedAt": user.AccountCreatedAt,
+		"isActive":         user.IsActive,
+		"isVerified":       user.IsVerified,
+		"program":          user.Program,
+		"dateOfBirth":      user.DateOfBirth,
+		"phoneCode":        user.PhoneCode,
+		"languages":        user.Languages,
+		"skills":           user.Skills,
+		"certifications":   user.Certifications,
+		"projects":         user.Projects,
+	}
+}
+
 // getBoolValueSafe safely retrieves a boolean value from a map
 func getBoolValueSafe(data map[string]interface{}, key string) bool {
 	if value, ok := data[key]; ok {
