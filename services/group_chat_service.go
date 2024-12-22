@@ -283,7 +283,7 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 	// Retrieve existing messages and append the new message
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
 	if messages == nil {
-		messages = []models.BaseMessage{} // Initialize as empty slice if nil
+		messages = []models.BaseMessage{}
 	}
 	messages = append(messages, message)
 
@@ -300,4 +300,162 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 
 	// Return the new message
 	return &message, nil
+}
+
+func MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) error {
+	// Validate required parameters
+	if groupChatID == "" {
+		return fmt.Errorf("groupChatID is required")
+	}
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve existing messages
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	if messages == nil || len(messages) == 0 {
+		return fmt.Errorf("no messages found in the group chat")
+	}
+
+	// Update the `read_status` for the given user in each message
+	for i := range messages {
+		if messages[i].ReadStatus == nil {
+			messages[i].ReadStatus = make(map[string]bool)
+		}
+		messages[i].ReadStatus[userID] = true
+	}
+
+	// Map updated messages to Firestore format
+	firestoreMessages := mappers.MapBaseMessagesArrayToFirestore(messages)
+
+	// Update Firestore document
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "messages", Value: firestoreMessages},
+		{Path: "updated_at", Value: time.Now()},
+	}); err != nil {
+		return fmt.Errorf("failed to update group chat messages: %v", err)
+	}
+
+	return nil
+}
+
+func CountUnreadMessagesService(ctx context.Context, groupChatID, userID string) (int, error) {
+	// Validate required parameters
+	if groupChatID == "" {
+		return 0, fmt.Errorf("groupChatID is required")
+	}
+	if userID == "" {
+		return 0, fmt.Errorf("userID is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return 0, fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve existing messages
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	if messages == nil || len(messages) == 0 {
+		return 0, nil // No messages means no unread messages
+	}
+
+	// Count unread messages for the user
+	unreadCount := 0
+	for _, message := range messages {
+		if read, ok := message.ReadStatus[userID]; !ok || !read {
+			unreadCount++
+		}
+	}
+
+	return unreadCount, nil
+}
+
+func RemoveParticipantFromGroupChatService(ctx context.Context, groupChatID, ownerID, participantID string) error {
+	// Validate required parameters
+	if groupChatID == "" {
+		return fmt.Errorf("groupChatID is required")
+	}
+	if ownerID == "" {
+		return fmt.Errorf("ownerID is required")
+	}
+	if participantID == "" {
+		return fmt.Errorf("participantID is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve existing participants
+	existingParticipants := mappers.GetParticipantsArray(data, "participants")
+	if len(existingParticipants) == 0 {
+		return fmt.Errorf("no participants found in the group chat")
+	}
+
+	// Check if the owner has the required role
+	isOwner := false
+	for _, participant := range existingParticipants {
+		if participant.UserID == ownerID && participant.Role == "owner" {
+			isOwner = true
+			break
+		}
+	}
+	if !isOwner {
+		return fmt.Errorf("only an owner can remove participants")
+	}
+
+	// Check if the participant exists and remove them
+	updatedParticipants := []models.Participant{}
+	participantFound := false
+	for _, participant := range existingParticipants {
+		if participant.UserID == participantID {
+			participantFound = true
+			continue // Skip adding this participant to the updated list
+		}
+		updatedParticipants = append(updatedParticipants, participant)
+	}
+
+	if !participantFound {
+		return fmt.Errorf("participant with ID %s not found", participantID)
+	}
+
+	// Map the updated participants to Firestore format
+	participantsFirestore := mappers.MapParticipantsArrayToFirestore(updatedParticipants)
+
+	// Update the Firestore document
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "participants", Value: participantsFirestore},
+		{Path: "updated_at", Value: time.Now()},
+	}); err != nil {
+		return fmt.Errorf("failed to update group chat participants: %v", err)
+	}
+
+	return nil
 }

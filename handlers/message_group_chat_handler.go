@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 
@@ -242,5 +243,158 @@ func SendMessageHandler(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Message sent successfully",
 		"data":    message,
+	})
+}
+
+func MarkMessagesAsReadHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+
+	// Call the service to mark messages as read
+	ctx := context.Background()
+	err = services.MarkMessagesAsReadService(ctx, requestData.GroupChatID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to mark messages as read: %v", err),
+		})
+	}
+
+	// Respond with success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Messages marked as read successfully",
+	})
+}
+
+func CountUnreadMessagesHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+
+	// Call the service to count unread messages
+	ctx := context.Background()
+	unreadCount, err := services.CountUnreadMessagesService(ctx, requestData.GroupChatID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to count unread messages: %v", err),
+		})
+	}
+
+	// Respond with the count
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"unreadCount": unreadCount,
+	})
+}
+
+func RemoveParticipantFromGroupChatHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	ownerID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID   string `json:"groupChatId"`
+		ParticipantID string `json:"participantId"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+	if requestData.ParticipantID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "participantId is required",
+		})
+	}
+
+	// Call the service to remove the participant
+	ctx := context.Background()
+	err = services.RemoveParticipantFromGroupChatService(ctx, requestData.GroupChatID, ownerID, requestData.ParticipantID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to remove participant: %v", err),
+		})
+	}
+
+	// Respond with success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Participant removed successfully",
 	})
 }
