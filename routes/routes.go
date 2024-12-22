@@ -110,7 +110,10 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Post("/reply-message", handlers.ReplyToMessageHandler)
 	groupChats.Post("/attach-files", handlers.AttachFilesToMessageHandler)
 	groupChats.Post("/pin-message", handlers.PinMessageHandler)
-	// groupChats.Post("/unpin-message", handlers.UnpinMessageHandler)
+	groupChats.Post("/pinned-messages", handlers.GetPinnedMessagesHandler)
+	groupChats.Post("/unpin-message", handlers.UnpinMessageHandler)
+	groupChats.Post("/react-message", handlers.ReactToMessageHandler)
+	groupChats.Get("/read-receipts", handlers.GetMessageReadReceiptsHandler)
 
 	// Media File Routes
 	mediaFiles := api.Group("/media-files")

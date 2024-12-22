@@ -11,4 +11,5 @@ type Participant struct {
 	Username       string    `json:"username"`
 	Email          string    `json:"email"`
 	JoinedAt       time.Time `json:"joined_at"`
+	MutedUntil     time.Time `json:"muted_until"`
 }

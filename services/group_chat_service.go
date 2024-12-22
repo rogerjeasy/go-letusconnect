@@ -762,3 +762,268 @@ func PinMessageService(ctx context.Context, groupChatID, userID, messageID strin
 
 	return nil
 }
+
+func GetPinnedMessagesService(ctx context.Context, groupChatID string) ([]models.BaseMessage, error) {
+	// Validate required parameters
+	if groupChatID == "" {
+		return nil, fmt.Errorf("groupChatID is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return nil, fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve pinned messages
+	pinnedMessageIDs := mappers.GetStringArray(data, "pinned_messages")
+	if len(pinnedMessageIDs) == 0 {
+		return []models.BaseMessage{}, nil // No pinned messages
+	}
+
+	// Retrieve all messages
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	if messages == nil || len(messages) == 0 {
+		return nil, fmt.Errorf("no messages found in the group chat")
+	}
+
+	// Filter messages to include only pinned messages
+	var pinnedMessages []models.BaseMessage
+	messageMap := make(map[string]models.BaseMessage)
+	for _, message := range messages {
+		messageMap[message.ID] = message
+	}
+
+	for _, pinnedID := range pinnedMessageIDs {
+		if pinnedMessage, exists := messageMap[pinnedID]; exists {
+			pinnedMessages = append(pinnedMessages, pinnedMessage)
+		}
+	}
+
+	return pinnedMessages, nil
+}
+
+func UnpinMessageService(ctx context.Context, groupChatID, userID, messageID string) error {
+	// Validate required parameters
+	if groupChatID == "" {
+		return fmt.Errorf("groupChatID is required")
+	}
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+	if messageID == "" {
+		return fmt.Errorf("messageID is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve participants to check user permissions
+	participants := mappers.GetParticipantsArray(data, "participants")
+	isAuthorized := false
+	for _, participant := range participants {
+		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
+			isAuthorized = true
+			break
+		}
+	}
+
+	if !isAuthorized {
+		return fmt.Errorf("only an owner or admin can unpin messages")
+	}
+
+	// Retrieve pinned messages
+	pinnedMessages := mappers.GetStringArray(data, "pinned_messages")
+	if len(pinnedMessages) == 0 {
+		return fmt.Errorf("no pinned messages to unpin")
+	}
+
+	// Remove the message ID from pinned messages
+	var updatedPinnedMessages []string
+	messageFound := false
+	for _, pinnedID := range pinnedMessages {
+		if pinnedID == messageID {
+			messageFound = true
+			continue
+		}
+		updatedPinnedMessages = append(updatedPinnedMessages, pinnedID)
+	}
+
+	if !messageFound {
+		return fmt.Errorf("message with ID %s is not pinned", messageID)
+	}
+
+	// Update Firestore
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "pinned_messages", Value: updatedPinnedMessages},
+		{Path: "updated_at", Value: time.Now()},
+	}); err != nil {
+		return fmt.Errorf("failed to unpin message: %v", err)
+	}
+
+	return nil
+}
+
+func ReactToMessageService(ctx context.Context, groupChatID, userID, messageID, reaction string) error {
+	if groupChatID == "" || userID == "" || messageID == "" || reaction == "" {
+		return fmt.Errorf("all parameters (groupChatID, userID, messageID, reaction) are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	for i, msg := range messages {
+		if msg.ID == messageID {
+			if msg.Reactions == nil {
+				msg.Reactions = map[string]int{}
+			}
+			msg.Reactions[reaction]++
+			messages[i] = msg
+			break
+		}
+	}
+
+	firestorePayload := map[string]interface{}{
+		"messages":   mappers.MapBaseMessagesArrayToFirestore(messages),
+		"updated_at": time.Now(),
+	}
+
+	if _, err := docRef.Set(ctx, firestorePayload, firestore.MergeAll); err != nil {
+		return fmt.Errorf("failed to update message reactions: %v", err)
+	}
+
+	return nil
+}
+
+func GetMessageReadReceiptsService(ctx context.Context, groupChatID, messageID string) (map[string]bool, error) {
+	if groupChatID == "" || messageID == "" {
+		return nil, fmt.Errorf("groupChatID and messageID are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	for _, msg := range messages {
+		if msg.ID == messageID {
+			return msg.ReadStatus, nil
+		}
+	}
+
+	return nil, fmt.Errorf("message not found")
+}
+
+func SetParticipantRoleService(ctx context.Context, groupChatID, userID, participantID, newRole string) error {
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	participants := mappers.GetParticipantsArray(data, "participants")
+	isAdmin := false
+	for _, participant := range participants {
+		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
+			isAdmin = true
+			break
+		}
+	}
+
+	if !isAdmin {
+		return fmt.Errorf("only admins or owners can set roles")
+	}
+
+	for i, participant := range participants {
+		if participant.UserID == participantID {
+			participants[i].Role = newRole
+			break
+		}
+	}
+
+	firestorePayload := map[string]interface{}{
+		"participants": mappers.MapParticipantsArrayToFirestore(participants),
+		"updated_at":   time.Now(),
+	}
+
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "participants", Value: firestorePayload["participants"]},
+		{Path: "updated_at", Value: firestorePayload["updated_at"]},
+	}); err != nil {
+		return fmt.Errorf("failed to update participant role: %v", err)
+	}
+
+	return nil
+}
+
+func MuteParticipantService(ctx context.Context, groupChatID, userID, participantID string, duration time.Duration) error {
+	if groupChatID == "" || userID == "" || participantID == "" {
+		return fmt.Errorf("groupChatID, userID, and participantID are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	participants := mappers.GetParticipantsArray(data, "participants")
+
+	isAdmin := false
+	for _, participant := range participants {
+		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
+			isAdmin = true
+			break
+		}
+	}
+
+	if !isAdmin {
+		return fmt.Errorf("only admins or owners can mute participants")
+	}
+
+	for i, participant := range participants {
+		if participant.UserID == participantID {
+			participants[i].MutedUntil = time.Now().Add(duration)
+			break
+		}
+	}
+
+	firestorePayload := map[string]interface{}{
+		"participants": mappers.MapParticipantsArrayToFirestore(participants),
+		"updated_at":   time.Now(),
+	}
+
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "participants", Value: firestorePayload["participants"]},
+		{Path: "updated_at", Value: firestorePayload["updated_at"]},
+	}); err != nil {
+		return fmt.Errorf("failed to mute participant: %v", err)
+	}
+
+	return nil
+}

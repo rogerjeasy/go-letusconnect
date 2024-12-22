@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/services"
@@ -585,4 +586,190 @@ func PinMessageHandler(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Message pinned successfully",
 	})
+}
+
+func GetPinnedMessagesHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	_, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+
+	// Call the service to get pinned messages
+	ctx := context.Background()
+	pinnedMessages, err := services.GetPinnedMessagesService(ctx, requestData.GroupChatID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to fetch pinned messages: %v", err),
+		})
+	}
+
+	// Respond with pinned messages
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"pinnedMessages": pinnedMessages,
+	})
+}
+
+func UnpinMessageHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+		MessageID   string `json:"messageId"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+	if requestData.MessageID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "messageId is required",
+		})
+	}
+
+	// Call the service to unpin the message
+	ctx := context.Background()
+	err = services.UnpinMessageService(ctx, requestData.GroupChatID, userID, requestData.MessageID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to unpin message: %v", err),
+		})
+	}
+
+	// Respond with success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Message unpinned successfully",
+	})
+}
+
+func ReactToMessageHandler(c *fiber.Ctx) error {
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+		MessageID   string `json:"messageId"`
+		Reaction    string `json:"reaction"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.ReactToMessageService(context.Background(), requestData.GroupChatID, userID, requestData.MessageID, requestData.Reaction)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Reaction added successfully"})
+}
+
+func GetMessageReadReceiptsHandler(c *fiber.Ctx) error {
+	groupChatID := c.Params("groupChatId")
+	messageID := c.Params("messageId")
+
+	receipts, err := services.GetMessageReadReceiptsService(context.Background(), groupChatID, messageID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"readReceipts": receipts})
+}
+
+func SetParticipantRoleHandler(c *fiber.Ctx) error {
+	var requestData struct {
+		GroupChatID   string `json:"groupChatId"`
+		ParticipantID string `json:"participantId"`
+		NewRole       string `json:"newRole"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.SetParticipantRoleService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, requestData.NewRole)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Role updated successfully"})
+}
+
+func MuteParticipantHandler(c *fiber.Ctx) error {
+	var requestData struct {
+		GroupChatID   string `json:"groupChatId"`
+		ParticipantID string `json:"participantId"`
+		Duration      int64  `json:"duration"` // Duration in seconds
+	}
+
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.MuteParticipantService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, time.Duration(requestData.Duration)*time.Second)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Participant muted successfully"})
 }
