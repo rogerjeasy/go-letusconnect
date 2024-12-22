@@ -16,6 +16,8 @@ func MapTaskFrontendToGo(data map[string]interface{}) models.Task {
 		DueDate:     getTimeValue(data, "dueDate"),
 		CreatedAt:   getTimeValue(data, "createdAt"),
 		UpdatedAt:   getTimeValue(data, "updatedAt"),
+		CreatedBy:   getStringValue(data, "createdBy"),
+		UpdateBy:    getStringValue(data, "updatedBy"),
 	}
 }
 
@@ -31,6 +33,8 @@ func MapTaskGoToFirestore(task models.Task) map[string]interface{} {
 		"due_date":    task.DueDate,
 		"created_at":  task.CreatedAt,
 		"updated_at":  task.UpdatedAt,
+		"created_by":  task.CreatedBy,
+		"updated_by":  task.UpdateBy,
 	}
 }
 
@@ -46,6 +50,8 @@ func MapTaskFirestoreToFrontend(data map[string]interface{}) map[string]interfac
 		"dueDate":     getTimeValue(data, "due_date").Format("2006-01-02T15:04:05Z07:00"),
 		"createdAt":   getTimeValue(data, "created_at").Format("2006-01-02T15:04:05Z07:00"),
 		"updatedAt":   getTimeValue(data, "updated_at").Format("2006-01-02T15:04:05Z07:00"),
+		"createdBy":   getStringValue(data, "created_by"),
+		"updatedBy":   getStringValue(data, "updated_by"),
 	}
 }
 
@@ -61,6 +67,8 @@ func MapTaskFirestoreToGo(data map[string]interface{}) models.Task {
 		DueDate:     getTimeValue(data, "due_date"),
 		CreatedAt:   getTimeValue(data, "created_at"),
 		UpdatedAt:   getTimeValue(data, "updated_at"),
+		CreatedBy:   getStringValue(data, "created_by"),
+		UpdateBy:    getStringValue(data, "updated_by"),
 	}
 }
 
@@ -76,6 +84,8 @@ func MapTaskGoToFrontend(task models.Task) map[string]interface{} {
 		"dueDate":     task.DueDate.Format("2006-01-02T15:04:05Z07:00"),
 		"createdAt":   task.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		"updatedAt":   task.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		"createdBy":   task.CreatedBy,
+		"updatedBy":   task.UpdateBy,
 	}
 }
 

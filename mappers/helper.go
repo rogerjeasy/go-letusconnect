@@ -30,9 +30,15 @@ func getTasksArray(data map[string]interface{}, key string) []models.Task {
 			if taskData, ok := v.(map[string]interface{}); ok {
 				task := models.Task{
 					ID:          getStringValue(taskData, "id"),
+					Title:       getStringValue(taskData, "title"),
+					Priority:    getStringValue(taskData, "priority"),
 					Description: getStringValue(taskData, "description"),
 					Status:      getStringValue(taskData, "status"),
 					DueDate:     getTimeValue(taskData, "dueDate"),
+					CreatedAt:   getTimeValue(taskData, "createdAt"),
+					UpdatedAt:   getTimeValue(taskData, "updatedAt"),
+					CreatedBy:   getStringValue(taskData, "createdBy"),
+					UpdateBy:    getStringValue(taskData, "updatedBy"),
 				}
 				tasks = append(tasks, task)
 			}
@@ -229,7 +235,7 @@ func getParticipantsArray(data map[string]interface{}, key string) []models.Part
 		if participants, ok := value.([]interface{}); ok {
 			for _, v := range participants {
 				if userMap, ok := v.(map[string]interface{}); ok {
-					user := MapParticipantFirestoreToGo(userMap)
+					user := MapParticipantFrontendToGo(userMap)
 					result = append(result, user)
 				} else {
 					fmt.Println("Error: participant is not a map[string]interface{}")

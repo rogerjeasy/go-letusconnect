@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/services"
 	"google.golang.org/api/iterator"
@@ -78,6 +79,21 @@ func CreateProject(c *fiber.Ctx) error {
 			participantInterfaces = append(participantInterfaces, p)
 		}
 		requestData["participants"] = participantInterfaces
+	}
+
+	// Handle tasks if provided
+	tasks, ok := requestData["tasks"].([]interface{})
+	if ok {
+		for i, task := range tasks {
+			if taskMap, isMap := task.(map[string]interface{}); isMap {
+				taskMap["id"] = uuid.New().String()
+				taskMap["createdBy"] = user["username"]
+				taskMap["createdAt"] = time.Now().Format(time.RFC3339)
+				taskMap["updatedAt"] = time.Now().Format(time.RFC3339)
+				tasks[i] = taskMap
+			}
+		}
+		requestData["tasks"] = tasks
 	}
 
 	// requestData["status"] = "open"
