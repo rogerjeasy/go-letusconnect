@@ -398,3 +398,191 @@ func RemoveParticipantFromGroupChatHandler(c *fiber.Ctx) error {
 		"message": "Participant removed successfully",
 	})
 }
+
+func ReplyToMessageHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	senderID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID      string `json:"groupChatId"`
+		Content          string `json:"content"`
+		MessageIDToReply string `json:"messageIdToReply"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+	if requestData.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "content is required",
+		})
+	}
+	if requestData.MessageIDToReply == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "messageIdToReply is required",
+		})
+	}
+
+	senderDetails, err := services.GetUserByUID(senderID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user details",
+		})
+	}
+
+	senderName := senderDetails["username"].(string)
+
+	// Call the service to reply to the message
+	ctx := context.Background()
+	replyMessage, err := services.ReplyToMessageService(ctx, requestData.GroupChatID, senderID, senderName, requestData.Content, requestData.MessageIDToReply)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to reply to the message: %v", err),
+		})
+	}
+
+	// Respond with the new reply message
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": replyMessage,
+	})
+}
+
+func AttachFilesToMessageHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	senderID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse form fields
+	groupChatID := c.FormValue("groupChatId")
+	content := c.FormValue("content")
+	if groupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+
+	// Get uploaded files
+	form, err := c.MultipartForm()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse multipart form",
+		})
+	}
+	files := form.File["files"]
+	if len(files) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "At least one file is required",
+		})
+	}
+
+	// Call the service to attach files to the message
+	ctx := context.Background()
+	senderDetails, err := services.GetUserByUID(senderID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user details",
+		})
+	}
+
+	senderName := senderDetails["username"].(string)
+	message, err := services.AttachFilesToMessageService(ctx, groupChatID, senderID, senderName, content, files)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to attach files to message: %v", err),
+		})
+	}
+
+	// Respond with the new message
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": message,
+	})
+}
+
+func PinMessageHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request body
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+		MessageID   string `json:"messageId"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+	if requestData.MessageID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "messageId is required",
+		})
+	}
+
+	// Call the service to pin the message
+	ctx := context.Background()
+	err = services.PinMessageService(ctx, requestData.GroupChatID, userID, requestData.MessageID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to pin message: %v", err),
+		})
+	}
+
+	// Respond with success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Message pinned successfully",
+	})
+}

@@ -107,6 +107,10 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Post("/mark-messages-read", handlers.MarkMessagesAsReadHandler)
 	groupChats.Get("/unread-messages/count", handlers.CountUnreadMessagesHandler)
 	groupChats.Post("/remove-participant", handlers.RemoveParticipantFromGroupChatHandler)
+	groupChats.Post("/reply-message", handlers.ReplyToMessageHandler)
+	groupChats.Post("/attach-files", handlers.AttachFilesToMessageHandler)
+	groupChats.Post("/pin-message", handlers.PinMessageHandler)
+	// groupChats.Post("/unpin-message", handlers.UnpinMessageHandler)
 
 	// Media File Routes
 	mediaFiles := api.Group("/media-files")

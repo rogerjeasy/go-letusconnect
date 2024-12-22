@@ -3,9 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
+	"mime/multipart"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
@@ -455,6 +459,305 @@ func RemoveParticipantFromGroupChatService(ctx context.Context, groupChatID, own
 		{Path: "updated_at", Value: time.Now()},
 	}); err != nil {
 		return fmt.Errorf("failed to update group chat participants: %v", err)
+	}
+
+	return nil
+}
+
+func ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderName, content, messageIDToReply string) (*models.BaseMessage, error) {
+	// Validate required parameters
+	if groupChatID == "" {
+		return nil, fmt.Errorf("groupChatID is required")
+	}
+	if senderID == "" || senderName == "" {
+		return nil, fmt.Errorf("sender information is required")
+	}
+	if content == "" {
+		return nil, fmt.Errorf("message content cannot be empty")
+	}
+	if messageIDToReply == "" {
+		return nil, fmt.Errorf("messageIDToReply is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return nil, fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve existing messages
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	if messages == nil || len(messages) == 0 {
+		return nil, fmt.Errorf("no messages found in the group chat")
+	}
+
+	// Find the message being replied to
+	var repliedMessage *models.BaseMessage
+	for _, msg := range messages {
+		if msg.ID == messageIDToReply {
+			repliedMessage = &msg
+			break
+		}
+	}
+	if repliedMessage == nil {
+		return nil, fmt.Errorf("message with ID %s not found", messageIDToReply)
+	}
+
+	// Retrieve participants to set read statuses
+	participants := mappers.GetParticipantsArray(data, "participants")
+	if len(participants) == 0 {
+		return nil, fmt.Errorf("no participants found in the group chat")
+	}
+
+	readStatus := make(map[string]bool)
+	for _, participant := range participants {
+		if participant.UserID == senderID {
+			readStatus[participant.UserID] = true
+		} else {
+			readStatus[participant.UserID] = false
+		}
+	}
+
+	// Create the reply message
+	replyMessage := models.BaseMessage{
+		ID:          uuid.New().String(),
+		SenderID:    senderID,
+		SenderName:  senderName,
+		Content:     content,
+		CreatedAt:   time.Now().Format(time.RFC3339),
+		ReadStatus:  readStatus,
+		IsDeleted:   false,
+		Attachments: []string{},
+		Reactions:   make(map[string]int),
+		MessageType: "reply",
+		ReplyToID:   &messageIDToReply, // Reference to the original message
+	}
+
+	// Append the reply message to the group chat
+	messages = append(messages, replyMessage)
+
+	// Prepare Firestore payload
+	firestorePayload := map[string]interface{}{
+		"messages":   mappers.MapBaseMessagesArrayToFirestore(messages),
+		"updated_at": time.Now(),
+	}
+
+	// Update Firestore
+	if _, err := docRef.Set(ctx, firestorePayload, firestore.MergeAll); err != nil {
+		return nil, fmt.Errorf("failed to update group chat with the reply: %v", err)
+	}
+
+	// Return the reply message
+	return &replyMessage, nil
+}
+
+func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, senderName, content string, files []*multipart.FileHeader) (*models.BaseMessage, error) {
+	// Validate required parameters
+	if groupChatID == "" {
+		return nil, fmt.Errorf("groupChatID is required")
+	}
+	if senderID == "" || senderName == "" {
+		return nil, fmt.Errorf("sender information is required")
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("at least one file is required")
+	}
+
+	// Initialize Cloudinary client
+	cld := CloudinaryClient
+	if cld == nil {
+		return nil, fmt.Errorf("Cloudinary client not initialized")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return nil, fmt.Errorf("group chat not found")
+	}
+
+	// Upload files to Cloudinary
+	var attachments []string
+	for _, fileHeader := range files {
+		// Open the file
+		file, err := fileHeader.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file %s: %v", fileHeader.Filename, err)
+		}
+		defer file.Close()
+
+		// Determine the resource type based on file extension
+		resourceType := "auto"
+		switch {
+		case isVideo(fileHeader.Filename):
+			resourceType = "video"
+		case isDocument(fileHeader.Filename):
+			resourceType = "raw"
+		}
+
+		// Upload to Cloudinary
+		uploadResult, err := cld.Upload.Upload(ctx, file, uploader.UploadParams{
+			PublicID:     uuid.New().String(),
+			Folder:       fmt.Sprintf("group_chats/%s/files", groupChatID),
+			ResourceType: resourceType,
+		})
+		if err != nil {
+			log.Printf("Error uploading file %s: %v", fileHeader.Filename, err)
+			return nil, fmt.Errorf("failed to upload file %s: %v", fileHeader.Filename, err)
+		}
+
+		attachments = append(attachments, uploadResult.SecureURL)
+	}
+
+	// Retrieve participants to set read statuses
+	participants := mappers.GetParticipantsArray(data, "participants")
+	if len(participants) == 0 {
+		return nil, fmt.Errorf("no participants found in the group chat")
+	}
+
+	readStatus := make(map[string]bool)
+	for _, participant := range participants {
+		if participant.UserID == senderID {
+			readStatus[participant.UserID] = true
+		} else {
+			readStatus[participant.UserID] = false
+		}
+	}
+
+	// Create the message
+	message := models.BaseMessage{
+		ID:          uuid.New().String(),
+		SenderID:    senderID,
+		SenderName:  senderName,
+		Content:     content,
+		CreatedAt:   time.Now().Format(time.RFC3339),
+		ReadStatus:  readStatus,
+		IsDeleted:   false,
+		Attachments: attachments,
+		Reactions:   make(map[string]int),
+		MessageType: "attachment",
+	}
+
+	// Append the message to the group chat
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	if messages == nil {
+		messages = []models.BaseMessage{}
+	}
+	messages = append(messages, message)
+
+	// Update Firestore
+	firestorePayload := map[string]interface{}{
+		"messages":   mappers.MapBaseMessagesArrayToFirestore(messages),
+		"updated_at": time.Now(),
+	}
+
+	if _, err := docRef.Set(ctx, firestorePayload, firestore.MergeAll); err != nil {
+		return nil, fmt.Errorf("failed to update group chat with new message: %v", err)
+	}
+
+	return &message, nil
+}
+
+func isVideo(filename string) bool {
+	videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv"}
+	return hasExtension(filename, videoExtensions)
+}
+
+func isDocument(filename string) bool {
+	documentExtensions := []string{".pdf", ".doc", ".docx", ".ppt", ".xls"}
+	return hasExtension(filename, documentExtensions)
+}
+
+func hasExtension(filename string, extensions []string) bool {
+	for _, ext := range extensions {
+		if strings.HasSuffix(strings.ToLower(filename), ext) {
+			return true
+		}
+	}
+	return false
+}
+
+func PinMessageService(ctx context.Context, groupChatID, userID, messageID string) error {
+	// Validate required parameters
+	if groupChatID == "" {
+		return fmt.Errorf("groupChatID is required")
+	}
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+	if messageID == "" {
+		return fmt.Errorf("messageID is required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve participants to check user permissions
+	participants := mappers.GetParticipantsArray(data, "participants")
+	isAuthorized := false
+	for _, participant := range participants {
+		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
+			isAuthorized = true
+			break
+		}
+	}
+
+	if !isAuthorized {
+		return fmt.Errorf("only an owner or admin can pin messages")
+	}
+
+	// Retrieve existing messages and pinned messages
+	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+	pinnedMessages := mappers.GetStringArray(data, "pinned_messages")
+
+	// Check if the message exists
+	var messageExists bool
+	for _, msg := range messages {
+		if msg.ID == messageID {
+			messageExists = true
+			break
+		}
+	}
+	if !messageExists {
+		return fmt.Errorf("message with ID %s not found", messageID)
+	}
+
+	// Check if the message is already pinned
+	for _, pinnedMessage := range pinnedMessages {
+		if pinnedMessage == messageID {
+			return fmt.Errorf("message with ID %s is already pinned", messageID)
+		}
+	}
+
+	// Pin the message
+	pinnedMessages = append(pinnedMessages, messageID)
+
+	// Update Firestore
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "pinned_messages", Value: pinnedMessages},
+		{Path: "updated_at", Value: time.Now()},
+	}); err != nil {
+		return fmt.Errorf("failed to pin message: %v", err)
 	}
 
 	return nil

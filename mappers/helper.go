@@ -573,3 +573,30 @@ func MapBaseMessagesArrayToFirestore(messages []models.BaseMessage) []map[string
 	}
 	return firestoreMessages
 }
+
+func GetStringArray(data map[string]interface{}, key string) []string {
+	if value, ok := data[key]; ok {
+		// Check if the value is a slice of strings
+		if stringSlice, ok := value.([]string); ok {
+			return stringSlice
+		}
+
+		// Check if the value is a slice of interfaces containing strings
+		if interfaceSlice, ok := value.([]interface{}); ok {
+			var result []string
+			for _, item := range interfaceSlice {
+				if str, ok := item.(string); ok {
+					result = append(result, str)
+				} else {
+					fmt.Printf("Warning: item in %s is not a string: %+v\n", key, item)
+				}
+			}
+			return result
+		}
+
+		// Log unexpected type
+		fmt.Printf("Warning: unexpected type for %s: %+v\n", key, value)
+	}
+	// Return an empty slice if key not found or type mismatch
+	return []string{}
+}
