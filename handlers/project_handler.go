@@ -118,7 +118,6 @@ func CreateProject(c *fiber.Ctx) error {
 	groupChatInput := services.GroupChatInput{
 		ProjectID:      docRef.ID,
 		Name:           requestData["title"].(string),
-		Description:    requestData["description"].(string),
 		CreatedByUID:   uid,
 		CreatedByName:  user["username"].(string),
 		Email:          user["email"].(string),

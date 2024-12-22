@@ -227,7 +227,7 @@ func getInvitedUsersArray(data map[string]interface{}, key string) []models.Invi
 	return result
 }
 
-func getParticipantsArray(data map[string]interface{}, key string) []models.Participant {
+func GetParticipantsArray(data map[string]interface{}, key string) []models.Participant {
 	result := []models.Participant{}
 
 	if value, ok := data[key]; ok {
@@ -235,7 +235,7 @@ func getParticipantsArray(data map[string]interface{}, key string) []models.Part
 		if participants, ok := value.([]interface{}); ok {
 			for _, v := range participants {
 				if userMap, ok := v.(map[string]interface{}); ok {
-					user := MapParticipantFrontendToGo(userMap)
+					user := MapParticipantFirestoreToGo(userMap)
 					result = append(result, user)
 				} else {
 					fmt.Println("Error: participant is not a map[string]interface{}")
@@ -260,10 +260,13 @@ func mapInvitedUsersArrayToFirestore(users []models.InvitedUser) []map[string]in
 	return result
 }
 
-// Converts a slice of Participant structs to Firestore format
-func mapParticipantsArrayToFirestore(users []models.Participant) []map[string]interface{} {
+func MapParticipantsArrayToFirestore(users []models.Participant) []map[string]interface{} {
 	var result []map[string]interface{}
 	for _, user := range users {
+		if user.UserID == "" {
+			fmt.Println("Warning: Participant UserID is empty. Skipping participant.")
+			continue
+		}
 		result = append(result, MapParticipantGoToFirestore(user))
 	}
 	return result
@@ -483,8 +486,8 @@ func getMapValue(data map[string]interface{}, key string) map[string]interface{}
 	return nil
 }
 
-// getBaseMessagesArrayFromFirestore converts an array of Firestore BaseMessage data into Go struct format.
-func getBaseMessagesArrayFromFirestore(data map[string]interface{}, key string) []models.BaseMessage {
+// GetBaseMessagesArrayFromFirestore converts an array of Firestore BaseMessage data into Go struct format.
+func GetBaseMessagesArrayFromFirestore(data map[string]interface{}, key string) []models.BaseMessage {
 	var messages []models.BaseMessage
 	if rawMessages, ok := data[key].([]interface{}); ok {
 		for _, rawMessage := range rawMessages {
@@ -532,4 +535,41 @@ func dereferenceString(ptr *string, defaultValue string) string {
 		return *ptr
 	}
 	return defaultValue
+}
+
+// MapBaseMessagesArrayToFrontend maps an array of BaseMessage Go structs to frontend format.
+func MapBaseMessagesArrayToFrontend(data []models.BaseMessage) []map[string]interface{} {
+	var frontendMessages []map[string]interface{}
+	for _, message := range data {
+		frontendMessages = append(frontendMessages, MapBaseMessageGoToFrontend(message))
+	}
+	return frontendMessages
+}
+
+// // MapBaseMessagesArrayToFirestore maps an array of BaseMessage Go structs to Firestore format.
+// func MapBaseMessagesArrayToFirestore(data []models.BaseMessage) []map[string]interface{} {
+// 	var firestoreMessages []map[string]interface{}
+// 	for _, message := range data {
+// 		firestoreMessages = append(firestoreMessages, MapBaseMessageGoToFirestore(message))
+// 	}
+// 	return firestoreMessages
+// }
+
+func MapBaseMessagesArrayToFirestore(messages []models.BaseMessage) []map[string]interface{} {
+	var firestoreMessages []map[string]interface{}
+	for _, message := range messages {
+		firestoreMessages = append(firestoreMessages, map[string]interface{}{
+			"id":           message.ID,
+			"sender_id":    message.SenderID,
+			"sender_name":  message.SenderName,
+			"content":      message.Content,
+			"created_at":   message.CreatedAt,
+			"read_status":  message.ReadStatus,
+			"is_deleted":   message.IsDeleted,
+			"attachments":  message.Attachments,
+			"reactions":    message.Reactions,
+			"message_type": message.MessageType,
+		})
+	}
+	return firestoreMessages
 }

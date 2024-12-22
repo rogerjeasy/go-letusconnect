@@ -103,6 +103,7 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Get("/:id", handlers.GetGroupChat)
 	groupChats.Get("/projects/:projectId/group-chats", handlers.GetGroupChatsByProject)
 	groupChats.Get("/my/group-chats", handlers.GetMyGroupChats)
+	groupChats.Post("/messages", handlers.SendMessageHandler)
 
 	// Media File Routes
 	mediaFiles := api.Group("/media-files")

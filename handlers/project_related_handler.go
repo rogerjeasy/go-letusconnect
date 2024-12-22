@@ -319,20 +319,27 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 			participantExists = true
 			if requestData.Action == "accept" {
 				// Add the user as a participant with the provided attributes
-				newParticipant := map[string]interface{}{
-					"user_id":         userID,
-					"role":            requestData.Role,
-					"username":        requestData.Username,
-					"email":           requestData.Email,
-					"profile_picture": requestData.ProfilePicture,
-					"joined_at":       time.Now().Format(time.RFC3339),
+				newParticipant := models.Participant{
+					UserID:         userID,
+					Role:           requestData.Role,
+					Username:       requestData.Username,
+					Email:          requestData.Email,
+					ProfilePicture: requestData.ProfilePicture,
+					JoinedAt:       time.Now(),
 				}
 				_, err := services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
-					{Path: "participants", Value: firestore.ArrayUnion(newParticipant)},
+					{Path: "participants", Value: firestore.ArrayUnion(mappers.MapParticipantGoToFirestore(newParticipant))},
 				})
 				if err != nil {
 					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 						"error": "Failed to add participant",
+					})
+				}
+
+				// Add the participant to the group chat using projectID
+				if err := services.AddParticipantToGroupChat(ctx, "", projectID, newParticipant); err != nil {
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+						"error": fmt.Sprintf("Failed to add participant to group chat: %v", err),
 					})
 				}
 				// Send notification email for accepted request

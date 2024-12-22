@@ -187,3 +187,60 @@ func GetMyGroupChats(c *fiber.Ctx) error {
 		"data":    groupChats,
 	})
 }
+
+// SendMessageHandler handles sending a message in a group chat
+func SendMessageHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request payload
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+		Content     string `json:"content"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	if requestData.GroupChatID == "" || requestData.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "GroupChatID and content are required",
+		})
+	}
+
+	// Fetch the user's details
+	user, err := services.GetUserByUID(uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user details",
+		})
+	}
+
+	// Call the service
+	message, err := services.SendMessageService(context.Background(), requestData.GroupChatID, uid, user["username"].(string), requestData.Content)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Message sent successfully",
+		"data":    message,
+	})
+}
