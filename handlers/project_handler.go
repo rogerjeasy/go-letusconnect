@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -111,6 +112,23 @@ func CreateProject(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create project",
 		})
+	}
+
+	// Create group chat for the project
+	groupChatInput := services.GroupChatInput{
+		ProjectID:      docRef.ID,
+		Name:           requestData["title"].(string),
+		Description:    requestData["description"].(string),
+		CreatedByUID:   uid,
+		CreatedByName:  user["username"].(string),
+		Email:          user["email"].(string),
+		ProfilePicture: user["profile_picture"].(string),
+	}
+
+	_, err = services.CreateGroupChatService(ctx, groupChatInput)
+	if err != nil {
+		// Log the error but don't fail the project creation
+		log.Printf("Failed to create associated group chat for project %s: %v", docRef.ID, err)
 	}
 
 	c.Locals("id", docRef.ID)

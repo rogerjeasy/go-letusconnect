@@ -69,6 +69,26 @@ func MapBaseMessageFirestoreToFrontend(data map[string]interface{}) map[string]i
 	}
 }
 
+// MapBaseMessageGoToFrontend maps a BaseMessage Go struct to frontend format.
+func MapBaseMessageGoToFrontend(message models.BaseMessage) map[string]interface{} {
+	return map[string]interface{}{
+		"id":          message.ID,
+		"senderId":    message.SenderID,
+		"senderName":  message.SenderName,
+		"content":     message.Content,
+		"createdAt":   message.CreatedAt,
+		"updatedAt":   message.UpdatedAt,
+		"readStatus":  message.ReadStatus,
+		"isDeleted":   message.IsDeleted,
+		"attachments": message.Attachments,
+		"reactions":   message.Reactions,
+		"messageType": message.MessageType,
+		"replyToId":   message.ReplyToID,
+		"isPinned":    message.IsPinned,
+		"priority":    message.Priority,
+	}
+}
+
 // 4. MapBaseMessageFirestoreToGo maps Firestore BaseMessage data to Go struct format
 func MapBaseMessageFirestoreToGo(data map[string]interface{}) models.BaseMessage {
 	return models.BaseMessage{

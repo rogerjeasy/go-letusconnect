@@ -461,3 +461,75 @@ func getDirectMessagesArrayFromFirestoreToGo(data map[string]interface{}, key st
 	}
 	return directMessages
 }
+
+func getNotificationsMap(data map[string]interface{}, key string) map[string]bool {
+	if value, ok := data[key].(map[string]interface{}); ok {
+		notifications := make(map[string]bool)
+		for k, v := range value {
+			if val, isBool := v.(bool); isBool {
+				notifications[k] = val
+			}
+		}
+		return notifications
+	}
+	return nil
+}
+
+// getMapValue retrieves a map value from an interface{} and asserts it to map[string]interface{}.
+func getMapValue(data map[string]interface{}, key string) map[string]interface{} {
+	if value, ok := data[key].(map[string]interface{}); ok {
+		return value
+	}
+	return nil
+}
+
+// getBaseMessagesArrayFromFirestore converts an array of Firestore BaseMessage data into Go struct format.
+func getBaseMessagesArrayFromFirestore(data map[string]interface{}, key string) []models.BaseMessage {
+	var messages []models.BaseMessage
+	if rawMessages, ok := data[key].([]interface{}); ok {
+		for _, rawMessage := range rawMessages {
+			if messageMap, isMap := rawMessage.(map[string]interface{}); isMap {
+				messages = append(messages, MapBaseMessageFirestoreToGo(messageMap))
+			}
+		}
+	}
+	return messages
+}
+
+// getBaseMessagesArrayFromFrontend converts an array of frontend BaseMessage data into Go struct format.
+func getBaseMessagesArrayFromFrontend(data map[string]interface{}, key string) []models.BaseMessage {
+	var messages []models.BaseMessage
+	if rawMessages, ok := data[key].([]interface{}); ok {
+		for _, rawMessage := range rawMessages {
+			if messageMap, isMap := rawMessage.(map[string]interface{}); isMap {
+				messages = append(messages, MapBaseMessageFrontendToGo(messageMap))
+			}
+		}
+	}
+	return messages
+}
+
+// mapBaseMessagesArrayToFrontend maps an array of BaseMessage Go structs to frontend format.
+func mapBaseMessagesArrayToFrontend(data []models.BaseMessage) []map[string]interface{} {
+	var frontendMessages []map[string]interface{}
+	for _, message := range data {
+		frontendMessages = append(frontendMessages, MapBaseMessageGoToFrontend(message))
+	}
+	return frontendMessages
+}
+
+// mapBaseMessagesArrayToFirestore maps an array of BaseMessage Go structs to Firestore format.
+func mapBaseMessagesArrayToFirestore(data []models.BaseMessage) []map[string]interface{} {
+	var firestoreMessages []map[string]interface{}
+	for _, message := range data {
+		firestoreMessages = append(firestoreMessages, MapBaseMessageGoToFirestore(message))
+	}
+	return firestoreMessages
+}
+
+func dereferenceString(ptr *string, defaultValue string) string {
+	if ptr != nil {
+		return *ptr
+	}
+	return defaultValue
+}
