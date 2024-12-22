@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
@@ -773,3 +774,173 @@ func MuteParticipantHandler(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "Participant muted successfully"})
 }
+
+func UpdateLastSeenHandler(c *fiber.Ctx) error {
+	groupChatID := c.Params("groupChatId")
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.UpdateLastSeenService(context.Background(), groupChatID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Last seen updated successfully"})
+}
+
+func ArchiveGroupChatHandler(c *fiber.Ctx) error {
+	groupChatID := c.Params("groupChatId")
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.ArchiveGroupChatService(context.Background(), groupChatID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Group chat archived successfully"})
+}
+
+func LeaveGroupHandler(c *fiber.Ctx) error {
+	groupChatID := c.Params("groupChatId")
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.LeaveGroupService(context.Background(), groupChatID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Successfully left the group"})
+}
+
+func CreatePollHandler(c *fiber.Ctx) error {
+	var requestData struct {
+		GroupChatID string      `json:"groupChatId"`
+		Poll        models.Poll `json:"poll"`
+	}
+
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	poll, err := services.CreatePollService(context.Background(), requestData.GroupChatID, userID, requestData.Poll)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"poll": poll})
+}
+
+func ReportMessageHandler(c *fiber.Ctx) error {
+	var requestData struct {
+		GroupChatID string `json:"groupChatId"`
+		MessageID   string `json:"messageId"`
+		Reason      string `json:"reason"`
+	}
+
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	userID, err := validateToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	err = services.ReportMessageService(context.Background(), requestData.GroupChatID, userID, requestData.MessageID, requestData.Reason)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "Message reported successfully"})
+}
+
+// UpdateGroupSettingsHandler handles the HTTP request to update group settings
+func UpdateGroupSettingsHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Parse the request payload
+	var requestData struct {
+		GroupChatID   string               `json:"groupChatId"`
+		GroupSettings models.GroupSettings `json:"groupSettings"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Validate required fields
+	if requestData.GroupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+
+	// Call the service to update the group settings
+	ctx := context.Background()
+	err = services.UpdateGroupSettingsService(ctx, requestData.GroupChatID, userID, requestData.GroupSettings)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to update group settings: %v", err),
+		})
+	}
+
+	// Respond with success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Group settings updated successfully",
+	})
+}
+
+// func BlockUnblockParticipantHandler(c *fiber.Ctx) error {
+// 	var requestData struct {
+// 		GroupChatID   string `json:"groupChatId"`
+// 		ParticipantID string `json:"participantId"`
+// 		Block         bool   `json:"block"`
+// 	}
+
+// 	if err := c.BodyParser(&requestData); err != nil {
+// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+// 	}
+
+// 	userID, err := validateToken(c.Get("Authorization"))
+// 	if err != nil {
+// 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+// 	}
+
+// 	err = services.BlockUnblockParticipantService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, requestData.Block)
+// 	if err != nil {
+// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+// 	}
+
+// 	return c.JSON(fiber.Map{"message": "Participant block/unblock status updated successfully"})
+// }

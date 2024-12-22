@@ -600,3 +600,58 @@ func GetStringArray(data map[string]interface{}, key string) []string {
 	// Return an empty slice if key not found or type mismatch
 	return []string{}
 }
+
+func GetPollsArray(data map[string]interface{}, key string) []models.Poll {
+	polls := []models.Poll{}
+	if pollsData, ok := data[key].([]interface{}); ok {
+		for _, pollData := range pollsData {
+			if pollMap, ok := pollData.(map[string]interface{}); ok {
+				polls = append(polls, MapPollFirestoreToGo(pollMap))
+			}
+		}
+	}
+	return polls
+}
+
+func MapPollsArrayToFirestore(polls []models.Poll) []map[string]interface{} {
+	pollList := []map[string]interface{}{}
+	for _, poll := range polls {
+		pollList = append(pollList, MapPollGoToFirestore(poll))
+	}
+	return pollList
+}
+
+func getFloatValue(data map[string]interface{}, key string) float64 {
+	if value, ok := data[key].(float64); ok {
+		return value
+	}
+	return 0.0
+}
+
+func getOptionalTimeValue(data map[string]interface{}, key string) *time.Time {
+	if value, ok := data[key].(string); ok {
+		if parsedTime, err := time.Parse(time.RFC3339, value); err == nil {
+			return &parsedTime
+		}
+	}
+	return nil
+}
+
+func dereferenceTime(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
+}
+
+func GetReportsArray(data map[string]interface{}, key string) []models.Report {
+	reports := []models.Report{}
+	if rawReports, ok := data[key].([]interface{}); ok {
+		for _, rawReport := range rawReports {
+			if reportMap, ok := rawReport.(map[string]interface{}); ok {
+				reports = append(reports, MapReportFirestoreToGo(reportMap))
+			}
+		}
+	}
+	return reports
+}

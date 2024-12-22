@@ -1027,3 +1027,250 @@ func MuteParticipantService(ctx context.Context, groupChatID, userID, participan
 
 	return nil
 }
+
+func UpdateLastSeenService(ctx context.Context, groupChatID, userID string) error {
+	if groupChatID == "" || userID == "" {
+		return fmt.Errorf("groupChatID and userID are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	_, err := docRef.Update(ctx, []firestore.Update{
+		{Path: fmt.Sprintf("last_seen.%s", userID), Value: time.Now()},
+		{Path: "updated_at", Value: time.Now()},
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update last seen status: %v", err)
+	}
+
+	return nil
+}
+
+func ArchiveGroupChatService(ctx context.Context, groupChatID, userID string) error {
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	_, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "is_archived", Value: true},
+		{Path: "updated_at", Value: time.Now()},
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to archive group chat: %v", err)
+	}
+
+	return nil
+}
+
+func LeaveGroupService(ctx context.Context, groupChatID, userID string) error {
+	if groupChatID == "" || userID == "" {
+		return fmt.Errorf("groupChatID and userID are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	participants := mappers.GetParticipantsArray(data, "participants")
+
+	updatedParticipants := []models.Participant{}
+	userFound := false
+	for _, participant := range participants {
+		if participant.UserID == userID {
+			userFound = true
+			continue
+		}
+		updatedParticipants = append(updatedParticipants, participant)
+	}
+
+	if !userFound {
+		return fmt.Errorf("user not found in the group chat")
+	}
+
+	if len(updatedParticipants) == 0 {
+		// If no participants remain, delete the group chat
+		_, err := docRef.Delete(ctx)
+		return err
+	}
+
+	// Update Firestore with the updated participants
+	firestorePayload := map[string]interface{}{
+		"participants": mappers.MapParticipantsArrayToFirestore(updatedParticipants),
+		"updated_at":   time.Now(),
+	}
+
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "participants", Value: firestorePayload["participants"]},
+		{Path: "updated_at", Value: firestorePayload["updated_at"]},
+	}); err != nil {
+		return fmt.Errorf("failed to update group chat participants: %v", err)
+	}
+
+	return nil
+}
+
+func CreatePollService(ctx context.Context, groupChatID, userID string, poll models.Poll) (*models.Poll, error) {
+	if groupChatID == "" || userID == "" {
+		return nil, fmt.Errorf("groupChatID and userID are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	participants := mappers.GetParticipantsArray(data, "participants")
+	userFound := false
+	for _, participant := range participants {
+		if participant.UserID == userID {
+			userFound = true
+			break
+		}
+	}
+
+	if !userFound {
+		return nil, fmt.Errorf("user is not a participant in the group chat")
+	}
+
+	poll.ID = uuid.New().String()
+	poll.CreatedBy = userID
+	poll.CreatedAt = time.Now()
+
+	firestorePayload := map[string]interface{}{
+		"polls":      append(mappers.GetPollsArray(data, "polls"), poll),
+		"updated_at": time.Now(),
+	}
+
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "polls", Value: firestorePayload["polls"]},
+		{Path: "updated_at", Value: firestorePayload["updated_at"]},
+	}); err != nil {
+		return nil, fmt.Errorf("failed to create poll: %v", err)
+	}
+
+	return &poll, nil
+}
+
+func ReportMessageService(ctx context.Context, groupChatID, userID, messageID, reason string) error {
+	if groupChatID == "" || userID == "" || messageID == "" || reason == "" {
+		return fmt.Errorf("all fields are required")
+	}
+
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	reports := mappers.GetReportsArray(data, "reports")
+
+	report := models.Report{
+		ID:         uuid.New().String(),
+		MessageID:  messageID,
+		ReportedBy: userID,
+		Reason:     reason,
+		CreatedAt:  time.Now(),
+	}
+
+	reports = append(reports, report)
+
+	firestorePayload := map[string]interface{}{
+		"reports":    mappers.MapReportsArrayToFirestore(reports),
+		"updated_at": time.Now(),
+	}
+
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "reports", Value: firestorePayload["reports"]},
+		{Path: "updated_at", Value: firestorePayload["updated_at"]},
+	}); err != nil {
+		return fmt.Errorf("failed to report message: %v", err)
+	}
+
+	return nil
+}
+
+// UpdateGroupSettingsService updates the settings of a group chat
+func UpdateGroupSettingsService(ctx context.Context, groupChatID, userID string, updatedSettings models.GroupSettings) error {
+	if groupChatID == "" || userID == "" {
+		return fmt.Errorf("groupChatID and userID are required")
+	}
+
+	// Fetch the group chat document
+	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := docSnap.Data()
+	if data == nil {
+		return fmt.Errorf("group chat not found")
+	}
+
+	// Retrieve participants to check user permissions
+	participants := mappers.GetParticipantsArray(data, "participants")
+	isAuthorized := false
+	for _, participant := range participants {
+		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
+			isAuthorized = true
+			break
+		}
+	}
+
+	if !isAuthorized {
+		return fmt.Errorf("only an owner or admin can update group settings")
+	}
+
+	// Map updated settings to Firestore format
+	settingsFirestore := mappers.MapGroupSettingsGoToFirestore(updatedSettings)
+
+	// Update the Firestore document
+	if _, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "group_settings", Value: settingsFirestore},
+		{Path: "updated_at", Value: time.Now()},
+	}); err != nil {
+		return fmt.Errorf("failed to update group chat settings: %v", err)
+	}
+
+	return nil
+}
+
+// func BlockUnblockParticipantService(ctx context.Context, groupChatID, userID, participantID string, block bool) error {
+// 	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+// 	docSnap, err := docRef.Get(ctx)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to fetch group chat: %v", err)
+// 	}
+
+// 	data := docSnap.Data()
+// 	participants := mappers.GetParticipantsArray(data, "participants")
+
+// 	for i, participant := range participants {
+// 		if participant.UserID == userID {
+// 			if participant.Blocked == nil {
+// 				participant.Blocked = map[string]bool{}
+// 			}
+// 			participant.Blocked[participantID] = block
+// 			participants[i] = participant
+// 			break
+// 		}
+// 	}
+
+// 	firestorePayload := map[string]interface{}{
+// 		"participants": mappers.MapParticipantsArrayToFirestore(participants),
+// 		"updated_at":   time.Now(),
+// 	}
+
+// 	if _, err := docRef.Update(ctx, []firestore.Update{
+// 		{Path: "participants", Value: firestorePayload["participants"]},
+// 		{Path: "updated_at", Value: firestorePayload["updated_at"]},
+// 	}); err != nil {
+// 		return fmt.Errorf("failed to update block/unblock status: %v", err)
+// 	}
+
+// 	return nil
+// }

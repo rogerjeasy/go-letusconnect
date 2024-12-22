@@ -112,8 +112,36 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Post("/pin-message", handlers.PinMessageHandler)
 	groupChats.Post("/pinned-messages", handlers.GetPinnedMessagesHandler)
 	groupChats.Post("/unpin-message", handlers.UnpinMessageHandler)
-	groupChats.Post("/react-message", handlers.ReactToMessageHandler)
-	groupChats.Get("/read-receipts", handlers.GetMessageReadReceiptsHandler)
+	groupChats.Post("/react-to-message", handlers.ReactToMessageHandler)
+	groupChats.Get("/message-read-receipts/:groupChatId/:messageId", handlers.GetMessageReadReceiptsHandler)
+	groupChats.Post("/set-role", handlers.SetParticipantRoleHandler)
+	groupChats.Post("/mute-participant", handlers.MuteParticipantHandler)
+	groupChats.Get("/online-status/:participantId", handlers.UpdateLastSeenHandler)
+
+	// Update Group Settings
+	groupChats.Post("/update-settings", handlers.UpdateGroupSettingsHandler)
+
+	// Archive Group Chat
+	groupChats.Post("/archive", handlers.ArchiveGroupChatHandler)
+
+	// Leave Group
+	groupChats.Post("/leave", handlers.LeaveGroupHandler)
+
+	// Polls
+	// groupChats.Post("/create-poll", handlers.CreatePollHandler)
+	// groupChats.Get("/polls/:groupChatId", handlers.GetPollsHandler)
+	// groupChats.Post("/vote", handlers.VoteOnPollHandler)
+
+	// // Star/Favorite Messages
+	// groupChats.Post("/star-message", handlers.StarMessageHandler)
+	// groupChats.Post("/unstar-message", handlers.UnstarMessageHandler)
+	// groupChats.Get("/starred-messages/:groupChatId", handlers.GetStarredMessagesHandler)
+
+	// Report Messages
+	groupChats.Post("/report-message", handlers.ReportMessageHandler)
+	// groupChats.Get("/reports/:groupChatId", handlers.GetReportsHandler)
+	// groupChats.Post("/block-participant", handlers.BlockParticipantHandler)
+	// groupChats.Post("/unblock-participant", handlers.UnblockParticipantHandler)
 
 	// Media File Routes
 	mediaFiles := api.Group("/media-files")
