@@ -235,6 +235,30 @@ func GetParticipantsArray(data map[string]interface{}, key string) []models.Part
 		if participants, ok := value.([]interface{}); ok {
 			for _, v := range participants {
 				if userMap, ok := v.(map[string]interface{}); ok {
+					user := MapParticipantFrontendToGo(userMap)
+					result = append(result, user)
+				} else {
+					fmt.Println("Error: participant is not a map[string]interface{}")
+				}
+			}
+		} else {
+			fmt.Println("Error: participants is not a []interface{}")
+		}
+	} else {
+		fmt.Println("Error: participants key not found in data")
+	}
+
+	return result
+}
+
+func GetParticipantsGoArray(data map[string]interface{}, key string) []models.Participant {
+	result := []models.Participant{}
+
+	if value, ok := data[key]; ok {
+		// Ensure the value is a slice of interfaces
+		if participants, ok := value.([]interface{}); ok {
+			for _, v := range participants {
+				if userMap, ok := v.(map[string]interface{}); ok {
 					user := MapParticipantFirestoreToGo(userMap)
 					result = append(result, user)
 				} else {

@@ -314,26 +314,19 @@ func CountUnreadMessagesHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the request body
-	var requestData struct {
-		GroupChatID string `json:"groupChatId"`
-	}
-	if err := c.BodyParser(&requestData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
-		})
-	}
+	// Extract query parameters
+	groupChatID := c.Query("groupChatId")
+	projectID := c.Query("projectId")
 
-	// Validate required fields
-	if requestData.GroupChatID == "" {
+	if groupChatID == "" && projectID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "groupChatId is required",
+			"error": "Either groupChatId or projectId is required",
 		})
 	}
 
 	// Call the service to count unread messages
 	ctx := context.Background()
-	unreadCount, err := services.CountUnreadMessagesService(ctx, requestData.GroupChatID, userID)
+	unreadCount, err := services.CountUnreadMessagesService(ctx, groupChatID, projectID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to count unread messages: %v", err),

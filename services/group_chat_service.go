@@ -204,7 +204,7 @@ func AddParticipantToGroupChat(ctx context.Context, groupChatID, projectID strin
 	}
 
 	// Check if the participant already exists
-	existingParticipants := mappers.GetParticipantsArray(data, "participants")
+	existingParticipants := mappers.GetParticipantsGoArray(data, "participants")
 	for _, p := range existingParticipants {
 		if p.UserID == participant.UserID {
 			return fmt.Errorf("participant with UserID %s already exists in the group chat", participant.UserID)
@@ -253,7 +253,7 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 	}
 
 	// Retrieve participants to set read statuses
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	if len(participants) == 0 {
 		return nil, fmt.Errorf("no participants found in the group chat")
 	}
@@ -355,18 +355,29 @@ func MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) 
 	return nil
 }
 
-func CountUnreadMessagesService(ctx context.Context, groupChatID, userID string) (int, error) {
+func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, userID string) (int, error) {
 	// Validate required parameters
-	if groupChatID == "" {
-		return 0, fmt.Errorf("groupChatID is required")
+	if groupChatID == "" && projectID == "" {
+		return 0, fmt.Errorf("either groupChatID or projectID is required")
 	}
 	if userID == "" {
 		return 0, fmt.Errorf("userID is required")
 	}
 
+	var docRef *firestore.DocumentRef
+	var docSnap *firestore.DocumentSnapshot
+	var err error
+
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
-	docSnap, err := docRef.Get(ctx)
+	if groupChatID != "" {
+		docRef = FirestoreClient.Collection("group_chats").Doc(groupChatID)
+		docSnap, err = docRef.Get(ctx)
+	} else if projectID != "" {
+		query := FirestoreClient.Collection("group_chats").Where("project_id", "==", projectID).Limit(1)
+		iter := query.Documents(ctx)
+		docSnap, err = iter.Next()
+	}
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch group chat: %v", err)
 	}
@@ -418,7 +429,7 @@ func RemoveParticipantFromGroupChatService(ctx context.Context, groupChatID, own
 	}
 
 	// Retrieve existing participants
-	existingParticipants := mappers.GetParticipantsArray(data, "participants")
+	existingParticipants := mappers.GetParticipantsGoArray(data, "participants")
 	if len(existingParticipants) == 0 {
 		return fmt.Errorf("no participants found in the group chat")
 	}
@@ -510,7 +521,7 @@ func ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderNam
 	}
 
 	// Retrieve participants to set read statuses
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	if len(participants) == 0 {
 		return nil, fmt.Errorf("no participants found in the group chat")
 	}
@@ -621,7 +632,7 @@ func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, sen
 	}
 
 	// Retrieve participants to set read statuses
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	if len(participants) == 0 {
 		return nil, fmt.Errorf("no participants found in the group chat")
 	}
@@ -713,7 +724,7 @@ func PinMessageService(ctx context.Context, groupChatID, userID, messageID strin
 	}
 
 	// Retrieve participants to check user permissions
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	isAuthorized := false
 	for _, participant := range participants {
 		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
@@ -834,7 +845,7 @@ func UnpinMessageService(ctx context.Context, groupChatID, userID, messageID str
 	}
 
 	// Retrieve participants to check user permissions
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	isAuthorized := false
 	for _, participant := range participants {
 		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
@@ -945,7 +956,7 @@ func SetParticipantRoleService(ctx context.Context, groupChatID, userID, partici
 	}
 
 	data := docSnap.Data()
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	isAdmin := false
 	for _, participant := range participants {
 		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
@@ -992,7 +1003,7 @@ func MuteParticipantService(ctx context.Context, groupChatID, userID, participan
 	}
 
 	data := docSnap.Data()
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 
 	isAdmin := false
 	for _, participant := range participants {
@@ -1072,7 +1083,7 @@ func LeaveGroupService(ctx context.Context, groupChatID, userID string) error {
 	}
 
 	data := docSnap.Data()
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 
 	updatedParticipants := []models.Participant{}
 	userFound := false
@@ -1122,7 +1133,7 @@ func CreatePollService(ctx context.Context, groupChatID, userID string, poll mod
 	}
 
 	data := docSnap.Data()
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	userFound := false
 	for _, participant := range participants {
 		if participant.UserID == userID {
@@ -1212,7 +1223,7 @@ func UpdateGroupSettingsService(ctx context.Context, groupChatID, userID string,
 	}
 
 	// Retrieve participants to check user permissions
-	participants := mappers.GetParticipantsArray(data, "participants")
+	participants := mappers.GetParticipantsGoArray(data, "participants")
 	isAuthorized := false
 	for _, participant := range participants {
 		if participant.UserID == userID && (participant.Role == "owner" || participant.Role == "admin") {
