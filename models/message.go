@@ -32,7 +32,8 @@ type BaseMessage struct {
 // DirectMessage for one-to-one messaging
 type DirectMessage struct {
 	BaseMessage
-	ReceiverID string `json:"receiverId" firestore:"receiver_id"`
+	ReceiverID   string `json:"receiverId" firestore:"receiver_id"`
+	ReceiverName string `json:"receiverName" firestore:"receiver_name"`
 }
 
 // GroupMessage for group messaging

@@ -130,49 +130,52 @@ func MapDirectMessageFrontendToGo(data map[string]interface{}) models.DirectMess
 			IsPinned:    getBoolValue(data, "isPinned"),
 			Priority:    getStringValue(data, "priority"),
 		},
-		ReceiverID: getStringValue(data, "receiverId"),
+		ReceiverID:   getStringValue(data, "receiverId"),
+		ReceiverName: getStringValue(data, "receiverName"),
 	}
 }
 
 // 2. MapDirectMessageGoToFirestore maps Go struct DirectMessage data to Firestore format
 func MapDirectMessageGoToFirestore(message models.DirectMessage) map[string]interface{} {
 	return map[string]interface{}{
-		"id":           message.ID,
-		"sender_id":    message.SenderID,
-		"sender_name":  message.SenderName,
-		"content":      message.Content,
-		"created_at":   message.CreatedAt,
-		"updated_at":   message.UpdatedAt,
-		"read_status":  message.ReadStatus,
-		"is_deleted":   message.IsDeleted,
-		"attachments":  message.Attachments,
-		"reactions":    message.Reactions,
-		"message_type": message.MessageType,
-		"reply_to_id":  message.ReplyToID,
-		"is_pinned":    message.IsPinned,
-		"priority":     message.Priority,
-		"receiver_id":  message.ReceiverID,
+		"id":            message.ID,
+		"sender_id":     message.SenderID,
+		"sender_name":   message.SenderName,
+		"content":       message.Content,
+		"created_at":    message.CreatedAt,
+		"updated_at":    message.UpdatedAt,
+		"read_status":   message.ReadStatus,
+		"is_deleted":    message.IsDeleted,
+		"attachments":   message.Attachments,
+		"reactions":     message.Reactions,
+		"message_type":  message.MessageType,
+		"reply_to_id":   message.ReplyToID,
+		"is_pinned":     message.IsPinned,
+		"priority":      message.Priority,
+		"receiver_id":   message.ReceiverID,
+		"receiver_name": message.ReceiverName,
 	}
 }
 
 // 3. MapDirectMessageFirestoreToFrontend maps Firestore DirectMessage data to frontend format
 func MapDirectMessageFirestoreToFrontend(data map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
-		"id":          getStringValue(data, "id"),
-		"senderId":    getStringValue(data, "sender_id"),
-		"senderName":  getStringValue(data, "sender_name"),
-		"content":     getStringValue(data, "content"),
-		"createdAt":   getStringValue(data, "created_at"),
-		"updatedAt":   getOptionalStringValue(data, "updated_at"),
-		"readStatus":  getReadStatusMap(data, "read_status"),
-		"isDeleted":   getBoolValue(data, "is_deleted"),
-		"attachments": getStringArrayValue(data, "attachments"),
-		"reactions":   getReactionsMap(data, "reactions"),
-		"messageType": getStringValue(data, "message_type"),
-		"replyToId":   getOptionalStringValue(data, "reply_to_id"),
-		"isPinned":    getBoolValue(data, "is_pinned"),
-		"priority":    getStringValue(data, "priority"),
-		"receiverId":  getStringValue(data, "receiver_id"),
+		"id":           getStringValue(data, "id"),
+		"senderId":     getStringValue(data, "sender_id"),
+		"senderName":   getStringValue(data, "sender_name"),
+		"content":      getStringValue(data, "content"),
+		"createdAt":    getStringValue(data, "created_at"),
+		"updatedAt":    getOptionalStringValue(data, "updated_at"),
+		"readStatus":   getReadStatusMap(data, "read_status"),
+		"isDeleted":    getBoolValue(data, "is_deleted"),
+		"attachments":  getStringArrayValue(data, "attachments"),
+		"reactions":    getReactionsMap(data, "reactions"),
+		"messageType":  getStringValue(data, "message_type"),
+		"replyToId":    getOptionalStringValue(data, "reply_to_id"),
+		"isPinned":     getBoolValue(data, "is_pinned"),
+		"priority":     getStringValue(data, "priority"),
+		"receiverId":   getStringValue(data, "receiver_id"),
+		"receiverName": getStringValue(data, "receiver_name"),
 	}
 }
 
@@ -195,7 +198,8 @@ func MapDirectMessageFirestoreToGo(data map[string]interface{}) models.DirectMes
 			IsPinned:    getBoolValue(data, "is_pinned"),
 			Priority:    getStringValue(data, "priority"),
 		},
-		ReceiverID: getStringValue(data, "receiver_id"),
+		ReceiverID:   getStringValue(data, "receiver_id"),
+		ReceiverName: getStringValue(data, "receiver_name"),
 	}
 }
 
@@ -296,21 +300,22 @@ func MapGroupMessageFirestoreToGo(data map[string]interface{}) models.GroupMessa
 // MapDirectMessageGoToFrontend maps a DirectMessage struct to frontend format
 func MapDirectMessageGoToFrontend(message models.DirectMessage) map[string]interface{} {
 	return map[string]interface{}{
-		"id":          message.ID,
-		"senderId":    message.SenderID,
-		"senderName":  message.SenderName,
-		"receiverId":  message.ReceiverID,
-		"content":     message.Content,
-		"createdAt":   message.CreatedAt,
-		"updatedAt":   message.UpdatedAt,
-		"readStatus":  message.ReadStatus,
-		"isDeleted":   message.IsDeleted,
-		"attachments": message.Attachments,
-		"reactions":   message.Reactions,
-		"messageType": message.MessageType,
-		"replyToId":   message.ReplyToID,
-		"isPinned":    message.IsPinned,
-		"priority":    message.Priority,
+		"id":           message.ID,
+		"senderId":     message.SenderID,
+		"senderName":   message.SenderName,
+		"receiverId":   message.ReceiverID,
+		"receiverName": message.ReceiverName,
+		"content":      message.Content,
+		"createdAt":    message.CreatedAt,
+		"updatedAt":    message.UpdatedAt,
+		"readStatus":   message.ReadStatus,
+		"isDeleted":    message.IsDeleted,
+		"attachments":  message.Attachments,
+		"reactions":    message.Reactions,
+		"messageType":  message.MessageType,
+		"replyToId":    message.ReplyToID,
+		"isPinned":     message.IsPinned,
+		"priority":     message.Priority,
 	}
 }
 

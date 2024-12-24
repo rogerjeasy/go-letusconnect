@@ -92,7 +92,7 @@ func SetupRoutes(app *fiber.App) {
 	messages.Get("/", handlers.GetMessages)
 	messages.Post("/typing", handlers.SendTyping)
 	messages.Post("/direct", handlers.SendDirectMessage)
-	messages.Post("/group", handlers.SendGroupMessage)
+	// messages.Post("/group", handlers.SendGroupMessage)
 	messages.Get("/direct", handlers.GetDirectMessages)
 	messages.Get("/unread", handlers.GetUnreadMessagesCount)
 	messages.Post("/mark-as-read", handlers.MarkMessagesAsRead)

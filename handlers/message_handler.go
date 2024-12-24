@@ -114,6 +114,7 @@ func GetMessages(c *fiber.Ctx) error {
 		channelID, ok := data["channel_id"].(string)
 		if ok && strings.Contains(channelID, uid) {
 			directMessage := mappers.MapDirectMessageFirestoreToGo(data)
+			fmt.Println("directMessages: ", directMessage)
 			directMessages = append(directMessages, directMessage)
 		}
 	}
@@ -212,6 +213,22 @@ func SendDirectMessage(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload."})
 	}
 
+	receiverUserUid, ok := payload["receiverId"].(string)
+	if !ok || receiverUserUid == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "receiverId is required."})
+	}
+
+	receiverUser, err := services.GetUserByUID(uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch receiver details",
+		})
+	}
+	receiverName := receiverUser["username"].(string)
+
+	// now add receiverName to the payload
+	payload["receiverName"] = receiverName
+
 	message := mappers.MapDirectMessageFrontendToGo(payload)
 	message.ID = uuid.New().String()
 	message.ReadStatus = map[string]bool{message.SenderID: true, message.ReceiverID: false}
@@ -289,7 +306,7 @@ func SendDirectMessage(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": "Direct message sent successfully.", "message": message})
 }
 
-// GetDirectMessages fetches direct messages based on the channel ID
+// GetDirectMessages fetches direct messages for the authenticated user based on their UID
 func GetDirectMessages(c *fiber.Ctx) error {
 
 	// Extract the Authorization token
@@ -301,50 +318,56 @@ func GetDirectMessages(c *fiber.Ctx) error {
 	}
 
 	// Validate token and get UID
-	_, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid token. Please log in again.",
 		})
 	}
-	// Get sender and receiver IDs from query parameters
-	senderID := c.Query("senderId")
-	receiverID := c.Query("receiverId")
 
-	if senderID == "" || receiverID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Both senderId and receiverId are required.",
+	// Fetch all documents from the Firestore messages collection
+	iter := services.FirestoreClient.Collection("messages").Documents(context.Background())
+
+	var messagesList []models.Messages
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to fetch messages.",
+			})
+		}
+
+		data := doc.Data()
+		channelID, ok := data["channel_id"].(string)
+		if ok && strings.Contains(channelID, uid) {
+			var messages models.Messages
+			err = doc.DataTo(&messages)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to parse messages.",
+				})
+			}
+			messagesList = append(messagesList, messages)
+		}
+	}
+
+	// Check if no messages were found
+	if len(messagesList) == 0 {
+		return c.JSON(fiber.Map{
+			"success":  "No messages found.",
+			"messages": []map[string]interface{}{},
 		})
 	}
 
-	// Create a sorted list of sender and receiver IDs for consistent channel ID
-	ids := []string{senderID, receiverID}
-	sort.Strings(ids)
-	channelID := strings.Join(ids, "-")
-
-	// Reference to the Firestore document
-	docRef := services.FirestoreClient.Collection("messages").Doc(channelID)
-
-	// Fetch the document from Firestore
-	docSnapshot, err := docRef.Get(context.Background())
-	if err != nil || !docSnapshot.Exists() {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success":  "No messages found, starting a new conversation.",
-			"messages": []models.DirectMessage{},
-		})
+	// Convert all messages to frontend format
+	var frontendMessages []map[string]interface{}
+	for _, msg := range messagesList {
+		frontendMessages = append(frontendMessages, mappers.MapMessagesGoToFrontend(msg))
 	}
-
-	// Convert Firestore data to the Messages struct
-	var messages models.Messages
-	err = docSnapshot.DataTo(&messages)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse messages.",
-		})
-	}
-
-	// Convert messages to frontend format
-	frontendMessages := mappers.MapMessagesGoToFrontend(messages)
 
 	return c.JSON(fiber.Map{
 		"success":  "Messages fetched successfully.",
