@@ -24,36 +24,52 @@ type GroupChatInput struct {
 	CreatedByName  string
 	Email          string
 	ProfilePicture string
+	Participants   []models.Participant
 }
 
 func CreateGroupChatService(ctx context.Context, input GroupChatInput) (*models.GroupChat, error) {
 	chatID := uuid.New().String()
 
+	// Initialize participants with the creator
+	participants := []models.Participant{
+		{
+			UserID:         input.CreatedByUID,
+			Username:       input.CreatedByName,
+			Role:           "owner",
+			JoinedAt:       time.Now(),
+			Email:          input.Email,
+			ProfilePicture: input.ProfilePicture,
+		},
+	}
+
+	// Add additional participants if provided
+	for _, p := range input.Participants {
+		participants = append(participants, models.Participant{
+			UserID:         p.UserID,
+			Username:       p.Username,
+			Role:           "Member",
+			JoinedAt:       time.Now(),
+			Email:          p.Email,
+			ProfilePicture: p.ProfilePicture,
+		})
+	}
+
 	// Create the group chat with defaults and provided values
 	groupChat := models.GroupChat{
-		ID:            chatID,
-		ProjectID:     input.ProjectID,
-		CreatedByUID:  input.CreatedByUID,
-		CreatedByName: input.CreatedByName,
-		Name:          input.Name,
-		Description:   input.Description,
-		Participants: []models.Participant{
-			{
-				UserID:         input.CreatedByUID,
-				Username:       input.CreatedByName,
-				Role:           "owner",
-				JoinedAt:       time.Now(),
-				Email:          input.Email,
-				ProfilePicture: input.ProfilePicture,
-			},
-		},
+		ID:             chatID,
+		ProjectID:      input.ProjectID,
+		CreatedByUID:   input.CreatedByUID,
+		CreatedByName:  input.CreatedByName,
+		Name:           input.Name,
+		Description:    input.Description,
+		Participants:   participants,
 		Messages:       []models.BaseMessage{},
 		PinnedMessages: []string{},
 		IsArchived:     false,
-		Notifications:  map[string]bool{input.CreatedByUID: true},
+		Notifications:  map[string]bool{},
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
-		ReadStatus:     map[string]bool{input.CreatedByUID: true},
+		ReadStatus:     map[string]bool{},
 		GroupSettings: models.GroupSettings{
 			AllowFileSharing:  true,
 			AllowPinning:      true,
@@ -138,26 +154,38 @@ func GetGroupChatsByUserService(ctx context.Context, userId string) ([]map[strin
 		return nil, fmt.Errorf("user ID is required")
 	}
 
-	// Query Firestore for group chats where user is a participant
-	// This assumes participants array contains objects with userId field
-	query := FirestoreClient.Collection("group_chats").Where("participants", "array-contains", map[string]interface{}{
-		"user_id": userId,
-	})
+	query := FirestoreClient.Collection("group_chats")
 
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chats: %v", err)
 	}
 
-	var groupChats []map[string]interface{}
+	groupChats := []map[string]interface{}{}
+
 	for _, doc := range docs {
 		data := doc.Data()
-		// Ensure ID is in the data
-		data["id"] = doc.Ref.ID
 
-		// Convert each group chat to frontend format
-		frontendData := mappers.MapGroupChatFirestoreToFrontend(data)
-		groupChats = append(groupChats, frontendData)
+		// Check if participants include the userId
+		if participants, ok := data["participants"].([]interface{}); ok {
+			userIsParticipant := false
+			for _, participant := range participants {
+				if participantMap, ok := participant.(map[string]interface{}); ok {
+					if participantMap["user_id"] == userId {
+						userIsParticipant = true
+						break
+					}
+				}
+			}
+
+			// Add the group chat to the result if the user is a participant
+			if userIsParticipant {
+				data["id"] = doc.Ref.ID
+
+				frontendData := mappers.MapGroupChatFirestoreToFrontend(data)
+				groupChats = append(groupChats, frontendData)
+			}
+		}
 	}
 
 	return groupChats, nil

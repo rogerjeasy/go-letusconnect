@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sort"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
+	"google.golang.org/api/iterator"
 )
 
 // SendMessage handles sending a message and triggering a Pusher event
@@ -74,9 +76,8 @@ func SendMessage(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": "Message sent successfully", "message": message})
 }
 
-// GetMessages retrieves messages between two users
+// GetMessages retrieves all messages for the authenticated user
 func GetMessages(c *fiber.Ctx) error {
-	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -84,7 +85,6 @@ func GetMessages(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate token and get UID
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -92,36 +92,43 @@ func GetMessages(c *fiber.Ctx) error {
 		})
 	}
 
-	senderID := c.Query("senderId")
-	receiverID := c.Query("receiverId")
-
-	if senderID == "" || receiverID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "senderId and receiverId are required"})
-	}
-
-	// Ensure the authenticated user is either the sender or the receiver
-	if uid != senderID && uid != receiverID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not authorized to view these messages"})
-	}
-
-	// Query Firestore for messages
 	iter := services.FirestoreClient.Collection("messages").
-		Where("sender_id", "in", []string{senderID, receiverID}).
-		Where("receiver_id", "in", []string{senderID, receiverID}).
 		Documents(context.Background())
 
-	var messages []models.Message
+	var directMessages []models.DirectMessage
+	var channelID string
+
 	for {
 		doc, err := iter.Next()
 		if err != nil {
-			break
+			if err == iterator.Done {
+				break
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": fmt.Sprintf("Failed to fetch messages: %v", err),
+			})
 		}
-		msg := mappers.MapMessageFirestoreToGo(doc.Data())
-		messages = append(messages, msg)
+
+		data := doc.Data()
+
+		channelID, ok := data["channel_id"].(string)
+		if ok && strings.Contains(channelID, uid) {
+			directMessage := mappers.MapDirectMessageFirestoreToGo(data)
+			directMessages = append(directMessages, directMessage)
+		}
 	}
 
-	// Convert messages to frontend format
-	frontendMessages := mappers.MapMessagesArrayToFrontend(messages)
+	if len(directMessages) == 0 {
+		directMessages = []models.DirectMessage{}
+		channelID = ""
+	}
+
+	messages := models.Messages{
+		ChannelID:      channelID,
+		DirectMessages: directMessages,
+	}
+
+	frontendMessages := mappers.MapMessagesGoToFrontend(messages)
 
 	return c.JSON(frontendMessages)
 }

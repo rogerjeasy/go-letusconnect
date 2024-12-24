@@ -39,7 +39,13 @@ func CreateGroupChatF(c *fiber.Ctx) error {
 	}
 
 	// Parse the request payload
-	var requestData map[string]interface{}
+	var requestData struct {
+		ProjectID    string                   `json:"projectId"`
+		Name         string                   `json:"name"`
+		Description  string                   `json:"description"`
+		Participants []map[string]interface{} `json:"participants"`
+	}
+
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
@@ -47,21 +53,35 @@ func CreateGroupChatF(c *fiber.Ctx) error {
 	}
 
 	// Validate mandatory fields
-	if _, ok := requestData["name"]; !ok || requestData["name"] == "" {
+	if requestData.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "name is required",
 		})
 	}
 
+	// Map participants from frontend format to backend models.Participant
+	var participants []models.Participant
+	for _, participant := range requestData.Participants {
+		participants = append(participants, models.Participant{
+			UserID:         participant["userId"].(string),
+			Username:       participant["username"].(string),
+			Role:           participant["role"].(string),
+			JoinedAt:       time.Now(), // Set joined_at to the current time
+			Email:          participant["email"].(string),
+			ProfilePicture: participant["profilePicture"].(string),
+		})
+	}
+
 	// Prepare input for service
 	input := services.GroupChatInput{
-		ProjectID:      requestData["projectId"].(string),
-		Name:           requestData["name"].(string),
-		Description:    requestData["description"].(string),
+		ProjectID:      requestData.ProjectID,
+		Name:           requestData.Name,
+		Description:    requestData.Description,
 		CreatedByUID:   uid,
 		CreatedByName:  user["username"].(string),
 		Email:          user["email"].(string),
 		ProfilePicture: user["profile_picture"].(string),
+		Participants:   participants,
 	}
 
 	// Call service function
