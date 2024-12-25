@@ -218,16 +218,20 @@ func SendDirectMessage(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "receiverId is required."})
 	}
 
-	receiverUser, err := services.GetUserByUID(uid)
+	receiverUser, err := services.GetUserByUID(receiverUserUid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch receiver details",
 		})
 	}
 	receiverName := receiverUser["username"].(string)
+	createdAt := time.Now().Format(time.RFC3339)
+
+	fmt.Println("receiverName: ", receiverName)
 
 	// now add receiverName to the payload
 	payload["receiverName"] = receiverName
+	payload["createdAt"] = createdAt
 
 	message := mappers.MapDirectMessageFrontendToGo(payload)
 	message.ID = uuid.New().String()

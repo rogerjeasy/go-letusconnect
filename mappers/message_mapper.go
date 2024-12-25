@@ -119,7 +119,7 @@ func MapDirectMessageFrontendToGo(data map[string]interface{}) models.DirectMess
 			SenderID:    getStringValue(data, "senderId"),
 			SenderName:  getStringValue(data, "senderName"),
 			Content:     getStringValue(data, "content"),
-			CreatedAt:   getStringValue(data, "createdAt"),
+			CreatedAt:   getTimeStringValue(data, "createdAt"),
 			UpdatedAt:   getTimeStringValue(data, "updatedAt"),
 			ReadStatus:  getReadStatusMap(data, "readStatus"),
 			IsDeleted:   getBoolValue(data, "isDeleted"),
