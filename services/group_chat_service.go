@@ -192,15 +192,14 @@ func GetGroupChatsByUserService(ctx context.Context, userId string) ([]map[strin
 	return groupChats, nil
 }
 
-// AddParticipantToGroupChat adds a participant to a given group chat by groupChatID or projectID
-func AddParticipantToGroupChat(ctx context.Context, groupChatID, projectID string, participant models.Participant) error {
-	// Validate input
+// AddParticipantsToGroupChat adds a list of participants to a given group chat by groupChatID or projectID
+func AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, userID string, participants []models.Participant) error {
 	if groupChatID == "" && projectID == "" {
 		return fmt.Errorf("either groupChatID or projectID must be provided")
 	}
 
-	if participant.UserID == "" {
-		return fmt.Errorf("participant UserID is required")
+	if len(participants) == 0 {
+		return fmt.Errorf("participants list cannot be empty")
 	}
 
 	var docRef *firestore.DocumentRef
@@ -232,16 +231,34 @@ func AddParticipantToGroupChat(ctx context.Context, groupChatID, projectID strin
 		return fmt.Errorf("group chat data is missing")
 	}
 
-	// Check if the participant already exists
 	existingParticipants := mappers.GetParticipantsGoArray(data, "participants")
+
+	isOwner := false
 	for _, p := range existingParticipants {
-		if p.UserID == participant.UserID {
-			return fmt.Errorf("participant with UserID %s already exists in the group chat", participant.UserID)
+		if p.UserID == userID && p.Role == "owner" {
+			isOwner = true
+			break
 		}
 	}
 
-	// Append the new participant as a models.Participant
-	existingParticipants = append(existingParticipants, participant)
+	if !isOwner {
+		return fmt.Errorf("only owners can add participants to the group chat")
+	}
+
+	// Check for duplicate participants and append new ones
+	for _, newParticipant := range participants {
+		exists := false
+		for _, existingParticipant := range existingParticipants {
+			if existingParticipant.UserID == newParticipant.UserID {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			existingParticipants = append(existingParticipants, newParticipant)
+		}
+	}
 
 	// Map the participants back to Firestore format
 	participantsFirestore := mappers.MapParticipantsArrayToFirestore(existingParticipants)

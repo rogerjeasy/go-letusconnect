@@ -99,6 +99,77 @@ func CreateGroupChatF(c *fiber.Ctx) error {
 	})
 }
 
+// AddParticipantsToGroupChatHandler handles updating the participants list of a group chat
+func AddParticipantsToGroupChatHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Extract groupChatID or projectID from the URL
+	groupChatID := c.Params("groupChatId")
+	projectID := c.Params("projectId")
+
+	if groupChatID == "" && projectID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Either groupChatId or projectId must be provided",
+		})
+	}
+
+	// Parse request body for participants
+	var requestData struct {
+		Participants []map[string]interface{} `json:"participants"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	if len(requestData.Participants) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Participants list cannot be empty",
+		})
+	}
+
+	// Map participants from frontend format to backend models.Participant
+	var participants []models.Participant
+	for _, participant := range requestData.Participants {
+		participants = append(participants, models.Participant{
+			UserID:         participant["userId"].(string),
+			Username:       participant["username"].(string),
+			Role:           participant["role"].(string),
+			JoinedAt:       time.Now(), // Set joined_at to the current time
+			Email:          participant["email"].(string),
+			ProfilePicture: participant["profilePicture"].(string),
+		})
+	}
+
+	ctx := context.Background()
+
+	// Call the service function to add participants
+	if err := services.AddParticipantsToGroupChat(ctx, groupChatID, projectID, uid, participants); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to add participants to group chat: %v", err),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Participants added successfully to the group chat",
+	})
+}
+
 // GetGroupChat handles fetching a single group chat by ID
 func GetGroupChat(c *fiber.Ctx) error {
 	// Extract the Authorization token
@@ -823,9 +894,20 @@ func ArchiveGroupChatHandler(c *fiber.Ctx) error {
 func LeaveGroupHandler(c *fiber.Ctx) error {
 	groupChatID := c.Params("groupChatId")
 
-	userID, err := validateToken(c.Get("Authorization"))
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
 	}
 
 	err = services.LeaveGroupService(context.Background(), groupChatID, userID)

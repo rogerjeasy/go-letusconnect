@@ -124,8 +124,9 @@ func SetupRoutes(app *fiber.App) {
 	// Archive Group Chat
 	groupChats.Post("/archive", handlers.ArchiveGroupChatHandler)
 
-	// Leave Group
-	groupChats.Post("/leave", handlers.LeaveGroupHandler)
+	groupChats.Delete("/:groupChatId/participants/me", handlers.LeaveGroupHandler)
+	groupChats.Put("/:groupChatId/participants", handlers.AddParticipantsToGroupChatHandler)
+	groupChats.Put("/projects/:projectId/participants", handlers.AddParticipantsToGroupChatHandler)
 
 	// Polls
 	// groupChats.Post("/create-poll", handlers.CreatePollHandler)
