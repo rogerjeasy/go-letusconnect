@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"mime/multipart"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -611,7 +612,7 @@ func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, sen
 	// Initialize Cloudinary client
 	cld := CloudinaryClient
 	if cld == nil {
-		return nil, fmt.Errorf("Cloudinary client not initialized")
+		return nil, fmt.Errorf("cloudinary client not initialized")
 	}
 
 	// Fetch the group chat document
@@ -636,6 +637,9 @@ func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, sen
 		}
 		defer file.Close()
 
+		// Extract the file's base name (without path)
+		baseFilename := strings.TrimSuffix(fileHeader.Filename, filepath.Ext(fileHeader.Filename))
+
 		// Determine the resource type based on file extension
 		resourceType := "auto"
 		switch {
@@ -647,15 +651,16 @@ func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, sen
 
 		// Upload to Cloudinary
 		uploadResult, err := cld.Upload.Upload(ctx, file, uploader.UploadParams{
-			PublicID:     uuid.New().String(),
+			PublicID:     baseFilename,
 			Folder:       fmt.Sprintf("group_chats/%s/files", groupChatID),
 			ResourceType: resourceType,
+			Type:         "upload",
 		})
+
 		if err != nil {
 			log.Printf("Error uploading file %s: %v", fileHeader.Filename, err)
 			return nil, fmt.Errorf("failed to upload file %s: %v", fileHeader.Filename, err)
 		}
-
 		attachments = append(attachments, uploadResult.SecureURL)
 	}
 

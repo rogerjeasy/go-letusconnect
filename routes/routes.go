@@ -110,7 +110,7 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Post("/reply-message", handlers.ReplyToMessageHandler)
 	groupChats.Post("/attach-files", handlers.AttachFilesToMessageHandler)
 	groupChats.Post("/pin-message", handlers.PinMessageHandler)
-	groupChats.Post("/pinned-messages", handlers.GetPinnedMessagesHandler)
+	groupChats.Get("/pinned-messages", handlers.GetPinnedMessagesHandler)
 	groupChats.Post("/unpin-message", handlers.UnpinMessageHandler)
 	groupChats.Post("/react-to-message", handlers.ReactToMessageHandler)
 	groupChats.Get("/message-read-receipts/:groupChatId/:messageId", handlers.GetMessageReadReceiptsHandler)
