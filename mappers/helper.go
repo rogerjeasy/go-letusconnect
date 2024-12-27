@@ -323,6 +323,13 @@ func getStringArrayValue(data map[string]interface{}, key string) []string {
 	return []string{}
 }
 
+func getArrayValue(data map[string]interface{}, key string) []interface{} {
+	if val, ok := data[key].([]interface{}); ok {
+		return val
+	}
+	return nil
+}
+
 // func getMapValue(data map[string]interface{}, key string) map[string]bool {
 // 	if val, ok := data[key].(map[string]interface{}); ok {
 // 		readStatus := make(map[string]bool)
@@ -510,6 +517,13 @@ func getMapValue(data map[string]interface{}, key string) map[string]interface{}
 	return nil
 }
 
+func getStringMapValue(data map[string]interface{}, key string) map[string]string {
+	if val, ok := data[key].(map[string]string); ok {
+		return val
+	}
+	return nil
+}
+
 // GetBaseMessagesArrayFromFirestore converts an array of Firestore BaseMessage data into Go struct format.
 func GetBaseMessagesArrayFromFirestore(data map[string]interface{}, key string) []models.BaseMessage {
 	var messages []models.BaseMessage
@@ -678,4 +692,64 @@ func GetReportsArray(data map[string]interface{}, key string) []models.Report {
 		}
 	}
 	return reports
+}
+
+func MapActionsFrontendToGo(data []interface{}) []models.NotificationAction {
+	var actions []models.NotificationAction
+	for _, d := range data {
+		action, ok := d.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		actions = append(actions, models.NotificationAction{
+			Label:     getStringValue(action, "label"),
+			URL:       getStringValue(action, "url"),
+			IsPrimary: action["isPrimary"].(bool),
+		})
+	}
+	return actions
+}
+
+func MapActionsGoToFirestore(actions []models.NotificationAction) []map[string]interface{} {
+	var firestoreActions []map[string]interface{}
+	for _, action := range actions {
+		firestoreActions = append(firestoreActions, map[string]interface{}{
+			"label":      action.Label,
+			"url":        action.URL,
+			"is_primary": action.IsPrimary,
+		})
+	}
+	return firestoreActions
+}
+
+func MapActionsFirestoreToFrontend(data []interface{}) []map[string]interface{} {
+	var frontendActions []map[string]interface{}
+	for _, d := range data {
+		action, ok := d.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		frontendActions = append(frontendActions, map[string]interface{}{
+			"label":     getStringValue(action, "label"),
+			"url":       getStringValue(action, "url"),
+			"isPrimary": action["is_primary"].(bool),
+		})
+	}
+	return frontendActions
+}
+
+func MapActionsFirestoreToGo(data []interface{}) []models.NotificationAction {
+	var actions []models.NotificationAction
+	for _, d := range data {
+		action, ok := d.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		actions = append(actions, models.NotificationAction{
+			Label:     getStringValue(action, "label"),
+			URL:       getStringValue(action, "url"),
+			IsPrimary: action["is_primary"].(bool),
+		})
+	}
+	return actions
 }

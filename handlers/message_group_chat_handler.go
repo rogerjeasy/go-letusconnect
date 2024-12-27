@@ -355,6 +355,24 @@ func SendMessageHandler(c *fiber.Ctx) error {
 			continue // Skip notifying the sender
 		}
 
+		// Notify participant about the new message
+		notificationChannelNewMessage := "user-notifications-new-msg-" + participant.UserID
+		err = services.PusherClient.Trigger(
+			notificationChannelNewMessage,
+			"new-unread-message",
+			map[string]string{
+				"groupChatId": requestData.GroupChatID,
+				"senderName":  user["username"].(string),
+				"content":     requestData.Content,
+				"messageId":   message.ID,
+			},
+		)
+		if err != nil {
+			fmt.Printf("Failed to notify participant %s: %v", participant.Username, err)
+		}
+
+		fmt.Printf("Triggering event on channel: %s with data: %v\n", notificationChannelNewMessage, participant.Username)
+
 		notificationChannel := "user-notifications-" + participant.UserID
 		err = services.PusherClient.Trigger(
 			notificationChannel,
