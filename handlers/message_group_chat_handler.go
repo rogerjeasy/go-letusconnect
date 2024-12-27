@@ -430,7 +430,7 @@ func CountUnreadMessagesHandler(c *fiber.Ctx) error {
 	})
 }
 
-func RemoveParticipantFromGroupChatHandler(c *fiber.Ctx) error {
+func RemoveParticipantsFromGroupChatHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -447,10 +447,17 @@ func RemoveParticipantFromGroupChatHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	// Extract groupChatId from URL parameter
+	groupChatID := c.Params("groupChatId")
+	if groupChatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
+	}
+
 	// Parse the request body
 	var requestData struct {
-		GroupChatID   string `json:"groupChatId"`
-		ParticipantID string `json:"participantId"`
+		ParticipantIDs []string `json:"participantIds"`
 	}
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -458,30 +465,25 @@ func RemoveParticipantFromGroupChatHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate required fields
-	if requestData.GroupChatID == "" {
+	// Validate participant IDs
+	if len(requestData.ParticipantIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "groupChatId is required",
-		})
-	}
-	if requestData.ParticipantID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "participantId is required",
+			"error": "At least one participant ID is required",
 		})
 	}
 
-	// Call the service to remove the participant
+	// Call the service to remove the participants
 	ctx := context.Background()
-	err = services.RemoveParticipantFromGroupChatService(ctx, requestData.GroupChatID, ownerID, requestData.ParticipantID)
+	err = services.RemoveParticipantsFromGroupChatService(ctx, groupChatID, ownerID, requestData.ParticipantIDs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("Failed to remove participant: %v", err),
+			"error": fmt.Sprintf("Failed to remove participants: %v", err),
 		})
 	}
 
 	// Respond with success
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Participant removed successfully",
+		"message": "Participants removed successfully",
 	})
 }
 

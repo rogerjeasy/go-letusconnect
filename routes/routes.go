@@ -106,7 +106,7 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Post("/messages", handlers.SendMessageHandler)
 	groupChats.Post("/mark-messages-read", handlers.MarkMessagesAsReadHandler)
 	groupChats.Get("/unread-messages/count", handlers.CountUnreadMessagesHandler)
-	groupChats.Post("/remove-participant", handlers.RemoveParticipantFromGroupChatHandler)
+	groupChats.Post("/:groupChatId/remove-participants", handlers.RemoveParticipantsFromGroupChatHandler)
 	groupChats.Post("/reply-message", handlers.ReplyToMessageHandler)
 	groupChats.Post("/attach-files", handlers.AttachFilesToMessageHandler)
 	groupChats.Post("/pin-message", handlers.PinMessageHandler)
@@ -126,7 +126,7 @@ func SetupRoutes(app *fiber.App) {
 
 	groupChats.Delete("/:groupChatId/participants/me", handlers.LeaveGroupHandler)
 	groupChats.Put("/:groupChatId/participants", handlers.AddParticipantsToGroupChatHandler)
-	groupChats.Put("/projects/:projectId/participants", handlers.AddParticipantsToGroupChatHandler)
+	groupChats.Put("/projects/:projectId/participants", handlers.AddParticipantsToGroupChatHandler) // Add participants to a group chat in a project
 
 	// Polls
 	// groupChats.Post("/create-poll", handlers.CreatePollHandler)

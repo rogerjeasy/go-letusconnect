@@ -251,7 +251,7 @@ func AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, use
 		for _, existingParticipant := range existingParticipants {
 			if existingParticipant.UserID == newParticipant.UserID {
 				exists = true
-				break
+				return fmt.Errorf("participant with name %s already exists", newParticipant.Username)
 			}
 		}
 
@@ -450,19 +450,17 @@ func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, use
 	return unreadCount, nil
 }
 
-func RemoveParticipantFromGroupChatService(ctx context.Context, groupChatID, ownerID, participantID string) error {
-	// Validate required parameters
+func RemoveParticipantsFromGroupChatService(ctx context.Context, groupChatID, ownerID string, participantIDs []string) error {
 	if groupChatID == "" {
 		return fmt.Errorf("groupChatID is required")
 	}
 	if ownerID == "" {
 		return fmt.Errorf("ownerID is required")
 	}
-	if participantID == "" {
-		return fmt.Errorf("participantID is required")
+	if len(participantIDs) == 0 {
+		return fmt.Errorf("participantIDs list is required")
 	}
 
-	// Fetch the group chat document
 	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
@@ -492,19 +490,25 @@ func RemoveParticipantFromGroupChatService(ctx context.Context, groupChatID, own
 		return fmt.Errorf("only an owner can remove participants")
 	}
 
-	// Check if the participant exists and remove them
+	// Create a map of participant IDs to remove for faster lookup
+	participantIDsToRemove := make(map[string]struct{})
+	for _, id := range participantIDs {
+		participantIDsToRemove[id] = struct{}{}
+	}
+
+	// Filter out participants that need to be removed
 	updatedParticipants := []models.Participant{}
-	participantFound := false
+	removedCount := 0
 	for _, participant := range existingParticipants {
-		if participant.UserID == participantID {
-			participantFound = true
-			continue // Skip adding this participant to the updated list
+		if _, found := participantIDsToRemove[participant.UserID]; found {
+			removedCount++
+			continue
 		}
 		updatedParticipants = append(updatedParticipants, participant)
 	}
 
-	if !participantFound {
-		return fmt.Errorf("participant with ID %s not found", participantID)
+	if removedCount == 0 {
+		return fmt.Errorf("none of the provided participant IDs were found in the group chat")
 	}
 
 	// Map the updated participants to Firestore format
