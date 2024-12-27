@@ -369,7 +369,30 @@ func SendMessageHandler(c *fiber.Ctx) error {
 
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to trigger notification event for participant " + participant.UserID,
+				"error": "Failed to trigger notification event for participant " + participant.Username,
+			})
+		}
+
+		unreadCount, err := services.CountUnreadMessagesService(context.Background(), requestData.GroupChatID, "", participant.UserID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to count unread messages",
+			})
+		}
+
+		unreadCountNotificationChannel := "group-unread-counts-" + participant.UserID
+		err = services.PusherClient.Trigger(
+			unreadCountNotificationChannel,
+			"update-unread-count",
+			map[string]interface{}{
+				"groupChatId": requestData.GroupChatID,
+				"unreadCount": unreadCount,
+			},
+		)
+
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to trigger unread count event for participant " + participant.Username,
 			})
 		}
 	}
@@ -456,7 +479,23 @@ func CountUnreadMessagesHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Respond with the count
+	// Trigger Pusher event for updating unread counts
+	notificationChannel := "group-unread-counts-" + userID
+	err = services.PusherClient.Trigger(
+		notificationChannel,
+		"update-unread-count",
+		map[string]interface{}{
+			"groupChatId": groupChatID,
+			"unreadCount": unreadCount,
+		},
+	)
+	if err != nil {
+		log.Printf("Pusher trigger failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to trigger unread count event",
+		})
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"unreadCount": unreadCount,
 	})
