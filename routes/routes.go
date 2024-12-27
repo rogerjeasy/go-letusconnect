@@ -104,7 +104,7 @@ func SetupRoutes(app *fiber.App) {
 	groupChats.Get("/projects/:projectId/group-chats", handlers.GetGroupChatsByProject)
 	groupChats.Get("/my/group-chats", handlers.GetMyGroupChats)
 	groupChats.Post("/messages", handlers.SendMessageHandler)
-	groupChats.Post("/mark-messages-read", handlers.MarkMessagesAsReadHandler)
+	groupChats.Patch("/:groupChatId/mark-messages-read", handlers.MarkMessagesAsReadHandler)
 	groupChats.Get("/unread-messages/count", handlers.CountUnreadMessagesHandler)
 	groupChats.Post("/:groupChatId/remove-participants", handlers.RemoveParticipantsFromGroupChatHandler)
 	groupChats.Post("/reply-message", handlers.ReplyToMessageHandler)

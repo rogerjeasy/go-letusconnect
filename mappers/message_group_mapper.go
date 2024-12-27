@@ -141,3 +141,36 @@ func MapGroupChatFirestoreToGo(data map[string]interface{}) models.GroupChat {
 		GroupSettings:  MapGroupSettingsFirestoreToGo(getMapValue(data, "group_settings")),
 	}
 }
+
+// MapGroupChatGoToFrontend maps Go struct GroupChat data to frontend format
+func MapGroupChatGoToFrontend(chat models.GroupChat) map[string]interface{} {
+	return map[string]interface{}{
+		"id":             chat.ID,
+		"projectId":      chat.ProjectID,
+		"createdByUid":   chat.CreatedByUID,
+		"createdByName":  chat.CreatedByName,
+		"name":           chat.Name,
+		"description":    chat.Description,
+		"participants":   mapParticipantsArrayToFrontend(chat.Participants),
+		"messages":       mapBaseMessagesArrayToFrontend(chat.Messages),
+		"pinnedMessages": chat.PinnedMessages,
+		"isArchived":     chat.IsArchived,
+		"notifications":  chat.Notifications,
+		"createdAt":      chat.CreatedAt.Format(time.RFC3339),
+		"updatedAt":      chat.UpdatedAt.Format(time.RFC3339),
+		"readStatus":     chat.ReadStatus,
+		"groupSettings":  MapGroupSettingsGoToFrontend(chat.GroupSettings),
+	}
+}
+
+// MapGroupSettingsGoToFrontend maps Go struct GroupSettings to frontend format
+func MapGroupSettingsGoToFrontend(settings models.GroupSettings) map[string]interface{} {
+	return map[string]interface{}{
+		"allowFileSharing":  settings.AllowFileSharing,
+		"allowPinning":      settings.AllowPinning,
+		"allowReactions":    settings.AllowReactions,
+		"allowReplies":      settings.AllowReplies,
+		"muteNotifications": settings.MuteNotifications,
+		"onlyAdminsCanPost": settings.OnlyAdminsCanPost,
+	}
+}

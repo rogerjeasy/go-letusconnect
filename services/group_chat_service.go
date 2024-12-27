@@ -15,6 +15,8 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type GroupChatInput struct {
@@ -272,6 +274,27 @@ func AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, use
 	}
 
 	return nil
+}
+
+func GetGroupChatParticipants(ctx context.Context, groupChatID string) ([]models.Participant, error) {
+	if groupChatID == "" {
+		return nil, fmt.Errorf("groupChatID is required")
+	}
+
+	groupChatDoc := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+
+	docSnapshot, err := groupChatDoc.Get(ctx)
+	if err != nil {
+		// Check if the error is a "not found" error
+		if status.Code(err) == codes.NotFound {
+			return nil, fmt.Errorf("group chat with ID %s not found", groupChatID)
+		}
+		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	groupChat := mappers.MapGroupChatFirestoreToGo(docSnapshot.Data())
+
+	return groupChat.Participants, nil
 }
 
 func SendMessageService(ctx context.Context, groupChatID string, senderID string, senderName string, content string) (*models.BaseMessage, error) {

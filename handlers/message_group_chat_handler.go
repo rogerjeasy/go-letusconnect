@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
@@ -170,7 +171,6 @@ func AddParticipantsToGroupChatHandler(c *fiber.Ctx) error {
 	})
 }
 
-// GetGroupChat handles fetching a single group chat by ID
 func GetGroupChat(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
@@ -210,7 +210,6 @@ func GetGroupChat(c *fiber.Ctx) error {
 	})
 }
 
-// GetGroupChatsByProject handles fetching all group chats for a project
 func GetGroupChatsByProject(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
@@ -250,7 +249,6 @@ func GetGroupChatsByProject(c *fiber.Ctx) error {
 	})
 }
 
-// GetMyGroupChats handles fetching all group chats for the authenticated user
 func GetMyGroupChats(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
@@ -282,9 +280,7 @@ func GetMyGroupChats(c *fiber.Ctx) error {
 	})
 }
 
-// SendMessageHandler handles sending a message in a group chat
 func SendMessageHandler(c *fiber.Ctx) error {
-	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -300,7 +296,6 @@ func SendMessageHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the request payload
 	var requestData struct {
 		GroupChatID string `json:"groupChatId"`
 		Content     string `json:"content"`
@@ -333,6 +328,52 @@ func SendMessageHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	// Trigger Pusher event for the group chat
+	channelName := "group-messages-" + requestData.GroupChatID
+	err = services.PusherClient.Trigger(
+		channelName,
+		"new-group-message",
+		mappers.MapBaseMessageGoToFrontend(*message),
+	)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to trigger group chat event",
+		})
+	}
+
+	// Notify participants via their notification channels
+	participants, err := services.GetGroupChatParticipants(context.Background(), requestData.GroupChatID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch group participants",
+		})
+	}
+
+	for _, participant := range participants {
+		if participant.UserID == uid {
+			continue // Skip notifying the sender
+		}
+
+		notificationChannel := "user-notifications-" + participant.UserID
+		err = services.PusherClient.Trigger(
+			notificationChannel,
+			"update-unread-count",
+			map[string]string{
+				"groupChatId": requestData.GroupChatID,
+				"senderName":  user["username"].(string),
+				"content":     requestData.Content,
+				"messageId":   message.ID,
+			},
+		)
+
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to trigger notification event for participant " + participant.UserID,
+			})
+		}
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Message sent successfully",
 		"data":    message,
@@ -356,18 +397,9 @@ func MarkMessagesAsReadHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the request body
-	var requestData struct {
-		GroupChatID string `json:"groupChatId"`
-	}
-	if err := c.BodyParser(&requestData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
-		})
-	}
-
-	// Validate required fields
-	if requestData.GroupChatID == "" {
+	// Get groupChatId from path parameters
+	groupChatID := c.Params("groupChatId")
+	if groupChatID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "groupChatId is required",
 		})
@@ -375,7 +407,7 @@ func MarkMessagesAsReadHandler(c *fiber.Ctx) error {
 
 	// Call the service to mark messages as read
 	ctx := context.Background()
-	err = services.MarkMessagesAsReadService(ctx, requestData.GroupChatID, userID)
+	err = services.MarkMessagesAsReadService(ctx, groupChatID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to mark messages as read: %v", err),
