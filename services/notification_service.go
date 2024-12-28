@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -141,4 +143,116 @@ func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, notifi
 		{Path: "read_at", Value: time.Now()},
 	})
 	return err
+}
+
+// ListTargetedNotifications fetches notifications where the user is in the targeted_users list
+func (s *NotificationService) ListTargetedNotifications(ctx context.Context, userID string, limit int, lastNotificationID string) ([]models.Notification, error) {
+	// Create a query for notifications where userID is in targeted_users array
+	query := s.firestoreClient.Collection("notifications").Where("targeted_users", "array-contains", userID)
+
+	// Add pagination if lastNotificationID is provided
+	if lastNotificationID != "" {
+		lastDoc, err := s.firestoreClient.Collection("notifications").Doc(lastNotificationID).Get(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get last notification: %v", err)
+		}
+		query = query.StartAfter(lastDoc)
+	}
+
+	// Add ordering and limit
+	query = query.OrderBy("created_at", firestore.Desc).OrderBy("__name__", firestore.Desc)
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	// Execute query with error handling for missing index
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	var notifications []models.Notification
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			// Check if the error is due to missing index
+			if status.Code(err) == codes.FailedPrecondition {
+				// Fallback to unordered query if index is not ready
+				return s.listTargetedNotificationsWithoutOrdering(ctx, userID, limit)
+			}
+			return nil, fmt.Errorf("error iterating notifications: %v", err)
+		}
+
+		notification := mappers.MapNotificationFirestoreToGo(doc.Data())
+
+		// Initialize read status map if nil
+		if notification.ReadStatus == nil {
+			notification.ReadStatus = make(map[string]bool)
+		}
+		if _, exists := notification.ReadStatus[userID]; !exists {
+			notification.ReadStatus[userID] = false
+		}
+
+		// Initialize archived status map if nil
+		if notification.IsArchived == nil {
+			notification.IsArchived = make(map[string]bool)
+		}
+		if _, exists := notification.IsArchived[userID]; !exists {
+			notification.IsArchived[userID] = false
+		}
+
+		notifications = append(notifications, notification)
+	}
+
+	return notifications, nil
+}
+
+// Fallback function for when index is not ready
+func (s *NotificationService) listTargetedNotificationsWithoutOrdering(ctx context.Context, userID string, limit int) ([]models.Notification, error) {
+	// Simple query without ordering
+	query := s.firestoreClient.Collection("notifications").Where("targeted_users", "array-contains", userID)
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	var notifications []models.Notification
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error in fallback query: %v", err)
+		}
+
+		notification := mappers.MapNotificationFirestoreToGo(doc.Data())
+
+		// Initialize maps if nil
+		if notification.ReadStatus == nil {
+			notification.ReadStatus = make(map[string]bool)
+		}
+		if _, exists := notification.ReadStatus[userID]; !exists {
+			notification.ReadStatus[userID] = false
+		}
+
+		if notification.IsArchived == nil {
+			notification.IsArchived = make(map[string]bool)
+		}
+		if _, exists := notification.IsArchived[userID]; !exists {
+			notification.IsArchived[userID] = false
+		}
+
+		notifications = append(notifications, notification)
+	}
+
+	// Sort notifications by created_at manually since we can't use Firestore ordering
+	sort.Slice(notifications, func(i, j int) bool {
+		return notifications[i].CreatedAt.After(notifications[j].CreatedAt)
+	})
+
+	return notifications, nil
 }

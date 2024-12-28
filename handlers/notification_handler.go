@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -248,5 +249,49 @@ func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Notification marked as read",
+	})
+}
+
+// ListTargetedNotifications handles the HTTP request for fetching notifications targeted at a user
+func (h *NotificationHandler) ListTargetedNotifications(c *fiber.Ctx) error {
+	// Get authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Get query parameters
+	limit := c.QueryInt("limit", 20)
+	lastNotificationID := c.Query("lastNotificationId")
+
+	// Fetch notifications
+	notifications, err := h.notificationService.ListTargetedNotifications(context.Background(), uid, limit, lastNotificationID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to fetch notifications: %v", err),
+		})
+	}
+
+	// Map notifications to frontend format
+	notificationsResponse := make([]map[string]interface{}, len(notifications))
+	for i, notification := range notifications {
+		notification.TargetedUsers = nil
+		notification.ReadStatus = nil
+		notificationsResponse[i] = mappers.MapNotificationGoToFrontend(notification)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message":       "Notifications retrieved successfully",
+		"notifications": notificationsResponse,
 	})
 }

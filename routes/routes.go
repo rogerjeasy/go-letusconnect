@@ -26,6 +26,7 @@ func SetupRoutes(app *fiber.App, notificationService *services.NotificationServi
 	// Notification Routes
 	notificationHandler := handlers.NewNotificationHandler(notificationService)
 	notifications := api.Group("/notifications")
+	notifications.Get("/targeted", notificationHandler.ListTargetedNotifications)
 	notifications.Post("/", notificationHandler.CreateNotification)
 	notifications.Get("/", notificationHandler.ListNotifications)
 	notifications.Get("/:id", notificationHandler.GetNotification)
