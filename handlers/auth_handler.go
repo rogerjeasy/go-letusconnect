@@ -47,25 +47,62 @@ func GenerateJWT(user *models.User) (string, error) {
 }
 
 func validateToken(tokenString string) (string, error) {
+	// Check for empty token
+	if strings.TrimSpace(tokenString) == "" {
+		log.Printf("Empty token received")
+		return "", errors.New("token cannot be empty")
+	}
+
+	// Parse token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			log.Printf("Invalid signing method: %v", token.Header["alg"])
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return jwtSecretKey, nil
 	})
 
-	if err != nil || !token.Valid {
-		return "", errors.New("invalid or expired token")
+	// Handle parsing errors
+	if err != nil {
+		log.Printf("Token parsing error: %v", err)
+		return "", fmt.Errorf("failed to parse token: %v", err)
 	}
 
+	// Validate token
+	if !token.Valid {
+		log.Printf("Token is invalid")
+		return "", errors.New("invalid token")
+	}
+
+	// Extract and validate claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
+		log.Printf("Failed to extract token claims")
 		return "", errors.New("invalid token claims")
 	}
 
+	// Check expiration
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < time.Now().Unix() {
+			log.Printf("Token expired at %v", time.Unix(int64(exp), 0))
+			return "", errors.New("token has expired")
+		}
+	} else {
+		log.Printf("Token missing expiration claim")
+		return "", errors.New("invalid token: missing expiration")
+	}
+
+	// Extract and validate UID
 	uid, ok := claims["uid"].(string)
 	if !ok {
-		return "", errors.New("missing UID in token claims")
+		log.Printf("Missing or invalid UID in token claims")
+		return "", errors.New("missing or invalid UID in token")
+	}
+
+	if strings.TrimSpace(uid) == "" {
+		log.Printf("Empty UID in token claims")
+		return "", errors.New("empty UID in token")
 	}
 
 	return uid, nil
@@ -304,9 +341,26 @@ func Login(c *fiber.Ctx) error {
 	frontendUser := mappers.MapUserToFrontend(&backendUser)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"message": "Login successful",
+		"message": "You have successfully logged in to your account",
 		"token":   token,
 		"user":    frontendUser,
+	})
+}
+
+func Logout(c *fiber.Ctx) error {
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   true,
+		SameSite: "Lax",
+		Path:     "/",
+	})
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"message": "Successfully logged out",
 	})
 }
 
