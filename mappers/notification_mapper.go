@@ -52,6 +52,7 @@ func MapNotificationFrontendToGo(data map[string]interface{}) models.Notificatio
 		Tags:            getStringArrayValue(data, "tags"),
 		GroupID:         getStringValue(data, "groupId"),
 		DeliveryChannel: getStringValue(data, "deliveryChannel"),
+		TargetedUsers:   getStringArrayValue(data, "targetedUsers"),
 	}
 }
 
@@ -81,6 +82,7 @@ func MapNotificationGoToFrontend(notification models.Notification) map[string]in
 		"tags":            notification.Tags,
 		"groupId":         notification.GroupID,
 		"deliveryChannel": notification.DeliveryChannel,
+		"targetedUsers":   notification.TargetedUsers,
 	}
 
 	if notification.ExpiresAt != nil {
@@ -122,6 +124,7 @@ func MapNotificationGoToFirestore(notification models.Notification) map[string]i
 		"tags":             notification.Tags,
 		"group_id":         notification.GroupID,
 		"delivery_channel": notification.DeliveryChannel,
+		"targeted_users":   notification.TargetedUsers,
 	}
 
 	if notification.ExpiresAt != nil {
@@ -163,6 +166,7 @@ func MapNotificationFirestoreToFrontend(data map[string]interface{}) map[string]
 		"tags":            getStringArrayValue(data, "tags"),
 		"groupId":         getStringValue(data, "group_id"),
 		"deliveryChannel": getStringValue(data, "delivery_channel"),
+		"targetedUsers":   getStringArrayValue(data, "targeted_users"),
 	}
 
 	if expiresAt, ok := data["expires_at"].(time.Time); ok {
@@ -204,6 +208,7 @@ func MapNotificationFirestoreToGo(data map[string]interface{}) models.Notificati
 		Tags:            getStringArrayValue(data, "tags"),
 		GroupID:         getStringValue(data, "group_id"),
 		DeliveryChannel: getStringValue(data, "delivery_channel"),
+		TargetedUsers:   getStringArrayValue(data, "targeted_users"),
 	}
 
 	if expiresAt, ok := data["expires_at"].(time.Time); ok {

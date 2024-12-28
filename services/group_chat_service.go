@@ -353,6 +353,13 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 		MessageType: "text",
 	}
 
+	// Send notification asynchronously
+	go func() {
+		if err := SendNewGroupMessageNotification(context.Background(), senderID, senderName, content, groupChatID, participants); err != nil {
+			log.Printf("Failed to send group message notification: %v", err)
+		}
+	}()
+
 	// Retrieve existing messages and append the new message
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
 	if messages == nil {

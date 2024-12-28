@@ -118,4 +118,5 @@ type Notification struct {
 	Tags            []string               `json:"tags,omitempty" firestore:"tags,omitempty"`
 	GroupID         string                 `json:"groupId,omitempty" firestore:"group_id,omitempty"`
 	DeliveryChannel string                 `json:"deliveryChannel,omitempty" firestore:"delivery_channel,omitempty"`
+	TargetedUsers   []string               `json:"targetedUsers,omitempty" firestore:"targeted_users,omitempty"`
 }
