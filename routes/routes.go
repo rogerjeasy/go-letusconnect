@@ -3,10 +3,11 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/handlers"
+	"github.com/rogerjeasy/go-letusconnect/services"
 	// "github.com/rogerjeasy/go-letusconnect/middleware"
 )
 
-func SetupRoutes(app *fiber.App) {
+func SetupRoutes(app *fiber.App, notificationService *services.NotificationService) {
 	api := app.Group("/api")
 
 	// User Routes
@@ -21,6 +22,16 @@ func SetupRoutes(app *fiber.App) {
 
 	users.Get("/:uid", handlers.GetUser)
 	users.Put("/:uid", handlers.UpdateUser)
+
+	// Notification Routes
+	notificationHandler := handlers.NewNotificationHandler(notificationService)
+	notifications := api.Group("/notifications")
+	notifications.Post("/", notificationHandler.CreateNotification)
+	notifications.Get("/", notificationHandler.ListNotifications)
+	notifications.Get("/:id", notificationHandler.GetNotification)
+	notifications.Put("/:id", notificationHandler.UpdateNotification)
+	notifications.Delete("/:id", notificationHandler.DeleteNotification)
+	notifications.Put("/:id/read", notificationHandler.MarkNotificationAsRead)
 
 	// User Address Routes
 	addresses := api.Group("/addresses")

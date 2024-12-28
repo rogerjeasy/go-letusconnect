@@ -398,7 +398,7 @@ func MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) 
 
 	// Retrieve existing messages
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
-	if messages == nil || len(messages) == 0 {
+	if len(messages) == 0 {
 		return fmt.Errorf("no messages found in the group chat")
 	}
 
@@ -458,7 +458,7 @@ func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, use
 
 	// Retrieve existing messages
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
-	if messages == nil || len(messages) == 0 {
+	if len(messages) == 0 {
 		return 0, nil // No messages means no unread messages
 	}
 
@@ -577,7 +577,7 @@ func ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderNam
 
 	// Retrieve existing messages
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
-	if messages == nil || len(messages) == 0 {
+	if len(messages) == 0 {
 		return nil, fmt.Errorf("no messages found in the group chat")
 	}
 
@@ -877,7 +877,7 @@ func GetPinnedMessagesService(ctx context.Context, groupChatID string) ([]models
 
 	// Retrieve all messages
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
-	if messages == nil || len(messages) == 0 {
+	if len(messages) == 0 {
 		return nil, fmt.Errorf("no messages found in the group chat")
 	}
 

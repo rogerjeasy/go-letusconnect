@@ -517,12 +517,12 @@ func getMapValue(data map[string]interface{}, key string) map[string]interface{}
 	return nil
 }
 
-func getStringMapValue(data map[string]interface{}, key string) map[string]string {
-	if val, ok := data[key].(map[string]string); ok {
-		return val
-	}
-	return nil
-}
+// func getStringMapValue(data map[string]interface{}, key string) map[string]string {
+// 	if val, ok := data[key].(map[string]string); ok {
+// 		return val
+// 	}
+// 	return nil
+// }
 
 // GetBaseMessagesArrayFromFirestore converts an array of Firestore BaseMessage data into Go struct format.
 func GetBaseMessagesArrayFromFirestore(data map[string]interface{}, key string) []models.BaseMessage {
@@ -752,4 +752,58 @@ func MapActionsFirestoreToGo(data []interface{}) []models.NotificationAction {
 		})
 	}
 	return actions
+}
+
+// MapEntityReferencesFrontendToGo converts frontend EntityReference data to Go struct format
+func MapEntityReferencesFrontendToGo(data []interface{}) []models.EntityReference {
+	refs := make([]models.EntityReference, len(data))
+	for i, item := range data {
+		if mapItem, ok := item.(map[string]interface{}); ok {
+			refs[i] = models.EntityReference{
+				ID:   getStringValue(mapItem, "id"),
+				Type: getStringValue(mapItem, "type"),
+			}
+		}
+	}
+	return refs
+}
+
+// MapEntityReferencesGoToFirestore converts Go struct EntityReference data to Firestore format
+func MapEntityReferencesGoToFirestore(refs []models.EntityReference) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(refs))
+	for i, ref := range refs {
+		result[i] = map[string]interface{}{
+			"id":   ref.ID,
+			"type": ref.Type,
+		}
+	}
+	return result
+}
+
+// MapEntityReferencesFirestoreToFrontend converts Firestore EntityReference data to frontend format
+func MapEntityReferencesFirestoreToFrontend(data []interface{}) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(data))
+	for i, item := range data {
+		if mapItem, ok := item.(map[string]interface{}); ok {
+			result[i] = map[string]interface{}{
+				"id":   getStringValue(mapItem, "id"),
+				"type": getStringValue(mapItem, "type"),
+			}
+		}
+	}
+	return result
+}
+
+// MapEntityReferencesFirestoreToGo converts Firestore EntityReference data to Go struct format
+func MapEntityReferencesFirestoreToGo(data []interface{}) []models.EntityReference {
+	refs := make([]models.EntityReference, len(data))
+	for i, item := range data {
+		if mapItem, ok := item.(map[string]interface{}); ok {
+			refs[i] = models.EntityReference{
+				ID:   getStringValue(mapItem, "id"),
+				Type: getStringValue(mapItem, "type"),
+			}
+		}
+	}
+	return refs
 }

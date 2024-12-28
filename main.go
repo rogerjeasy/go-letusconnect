@@ -28,6 +28,9 @@ func main() {
 	// Initialize Cloudinary
 	services.InitCloudinary()
 
+	// Initialize NotificationService
+	notificationService := services.NewNotificationService(services.FirestoreClient)
+
 	app := fiber.New()
 
 	// Enable CORS middleware
@@ -40,7 +43,7 @@ func main() {
 	}))
 
 	// Setup routes
-	routes.SetupRoutes(app)
+	routes.SetupRoutes(app, notificationService)
 
 	// Start the server on the port provided by Render
 	port := os.Getenv("PORT")
