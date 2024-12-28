@@ -371,8 +371,6 @@ func SendMessageHandler(c *fiber.Ctx) error {
 			fmt.Printf("Failed to notify participant %s: %v", participant.Username, err)
 		}
 
-		fmt.Printf("Triggering event on channel: %s with data: %v\n", notificationChannelNewMessage, participant.Username)
-
 		notificationChannel := "user-notifications-" + participant.UserID
 		err = services.PusherClient.Trigger(
 			notificationChannel,

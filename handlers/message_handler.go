@@ -288,7 +288,7 @@ func SendDirectMessage(c *fiber.Ctx) error {
 	}
 
 	// Trigger Pusher event for notification
-	notificationChannel := "user-notifications-" + message.ReceiverID
+	notificationChannel := "user-notifications-direct-msg-" + message.ReceiverID
 	err = services.PusherClient.Trigger(
 		notificationChannel,
 		"update-unread-count",
