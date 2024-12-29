@@ -286,6 +286,7 @@ func (h *NotificationHandler) ListTargetedNotifications(c *fiber.Ctx) error {
 	notificationsResponse := make([]map[string]interface{}, len(notifications))
 	for i, notification := range notifications {
 		notification.TargetedUsers = nil
+		notification.IsRead = notification.ReadStatus[uid]
 		notification.ReadStatus = nil
 		notificationsResponse[i] = mappers.MapNotificationGoToFrontend(notification)
 	}

@@ -119,4 +119,5 @@ type Notification struct {
 	GroupID         string                 `json:"groupId,omitempty" firestore:"group_id,omitempty"`
 	DeliveryChannel string                 `json:"deliveryChannel,omitempty" firestore:"delivery_channel,omitempty"`
 	TargetedUsers   []string               `json:"targetedUsers,omitempty" firestore:"targeted_users,omitempty"`
+	IsRead          bool                   `json:"isRead,omitempty" firestore:"is_read,omitempty"`
 }

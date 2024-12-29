@@ -53,6 +53,7 @@ func MapNotificationFrontendToGo(data map[string]interface{}) models.Notificatio
 		GroupID:         getStringValue(data, "groupId"),
 		DeliveryChannel: getStringValue(data, "deliveryChannel"),
 		TargetedUsers:   getStringArrayValue(data, "targetedUsers"),
+		IsRead:          data["isRead"].(bool),
 	}
 }
 
@@ -83,6 +84,7 @@ func MapNotificationGoToFrontend(notification models.Notification) map[string]in
 		"groupId":         notification.GroupID,
 		"deliveryChannel": notification.DeliveryChannel,
 		"targetedUsers":   notification.TargetedUsers,
+		"isRead":          notification.IsRead,
 	}
 
 	if notification.ExpiresAt != nil {
@@ -125,6 +127,7 @@ func MapNotificationGoToFirestore(notification models.Notification) map[string]i
 		"group_id":         notification.GroupID,
 		"delivery_channel": notification.DeliveryChannel,
 		"targeted_users":   notification.TargetedUsers,
+		"is_read":          notification.IsRead,
 	}
 
 	if notification.ExpiresAt != nil {
@@ -209,6 +212,7 @@ func MapNotificationFirestoreToGo(data map[string]interface{}) models.Notificati
 		GroupID:         getStringValue(data, "group_id"),
 		DeliveryChannel: getStringValue(data, "delivery_channel"),
 		TargetedUsers:   getStringArrayValue(data, "targeted_users"),
+		IsRead:          data["is_read"].(bool),
 	}
 
 	if expiresAt, ok := data["expires_at"].(time.Time); ok {
