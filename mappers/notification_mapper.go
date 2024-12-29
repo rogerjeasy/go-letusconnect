@@ -253,3 +253,29 @@ func MapActionsGoToFrontend(actions []models.NotificationAction) []map[string]in
 	}
 	return result
 }
+
+// MapNotificationStatsFirestoreToGo converts Firestore notification stats to Go struct format.
+func MapNotificationStatsFirestoreToGo(data map[string]interface{}) models.NotificationStats {
+	stats := models.NotificationStats{
+		TotalCount:    getInt64Value(data, "total_count"),
+		UnreadCount:   getInt64Value(data, "unread_count"),
+		ReadCount:     getInt64Value(data, "read_count"),
+		ArchivedCount: getInt64Value(data, "archived_count"),
+		PriorityStats: getMapStringInt64Value(data, "priority_stats"),
+		TypeStats:     getMapStringInt64Value(data, "type_stats"),
+	}
+
+	return stats
+}
+
+// MapNotificationStatsGoToFrontend converts Go struct notification stats to frontend format.
+func MapNotificationStatsGoToFrontend(stats models.NotificationStats) map[string]interface{} {
+	return map[string]interface{}{
+		"totalCount":    stats.TotalCount,
+		"unreadCount":   stats.UnreadCount,
+		"readCount":     stats.ReadCount,
+		"archivedCount": stats.ArchivedCount,
+		"priorityStats": mapStringInt64ToFrontend(stats.PriorityStats),
+		"typeStats":     mapStringInt64ToFrontend(stats.TypeStats),
+	}
+}

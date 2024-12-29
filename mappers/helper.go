@@ -807,3 +807,32 @@ func MapEntityReferencesFirestoreToGo(data []interface{}) []models.EntityReferen
 	}
 	return refs
 }
+
+func getInt64Value(data map[string]interface{}, key string) int64 {
+	if val, ok := data[key].(int64); ok {
+		return val
+	}
+	if val, ok := data[key].(float64); ok { // Firestore may store numbers as float64
+		return int64(val)
+	}
+	return 0
+}
+
+// Helper function to safely get map[string]int64 values from a map.
+func getMapStringInt64Value(data map[string]interface{}, key string) map[string]int64 {
+	if val, ok := data[key].(map[string]interface{}); ok {
+		result := make(map[string]int64)
+		for k := range val {
+			result[k] = getInt64Value(val, k)
+		}
+		return result
+	}
+	return make(map[string]int64)
+}
+
+func mapStringInt64ToFrontend(data map[string]int64) map[string]int64 {
+	if data == nil {
+		return make(map[string]int64)
+	}
+	return data
+}

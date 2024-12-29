@@ -135,14 +135,44 @@ func (s *NotificationService) ListNotifications(ctx context.Context, userID stri
 	return notifications, nil
 }
 
-// MarkNotificationAsRead marks a notification as read
-func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, notificationID string) error {
-	_, err := s.firestoreClient.Collection("notifications").Doc(notificationID).Update(ctx, []firestore.Update{
-		{Path: "status", Value: string(models.NotificationStatusRead)},
+// MarkNotificationAsRead marks a notification as read for a specific user
+func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, notificationID string, userID string) error {
+	// First get the current notification to access the existing read_status map
+	docRef := s.firestoreClient.Collection("notifications").Doc(notificationID)
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get notification: %v", err)
+	}
+
+	// Get current read status map
+	readStatus := make(map[string]bool)
+	currentReadStatus, exists := doc.Data()["read_status"]
+	if exists && currentReadStatus != nil {
+		// Type assert to map[string]interface{} first
+		if readStatusMap, ok := currentReadStatus.(map[string]interface{}); ok {
+			// Convert each value to bool
+			for k, v := range readStatusMap {
+				if boolVal, ok := v.(bool); ok {
+					readStatus[k] = boolVal
+				}
+			}
+		}
+	}
+
+	// Update read status for the specific user
+	readStatus[userID] = true
+
+	// Update the document
+	_, err = docRef.Update(ctx, []firestore.Update{
+		{Path: "read_status", Value: readStatus},
 		{Path: "updated_at", Value: time.Now()},
 		{Path: "read_at", Value: time.Now()},
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to update notification: %v", err)
+	}
+
+	return nil
 }
 
 // ListTargetedNotifications fetches notifications where the user is in the targeted_users list

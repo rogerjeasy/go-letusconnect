@@ -226,7 +226,7 @@ func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
 	}
 
 	// Validate token and get UID
-	_, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid token",
@@ -240,7 +240,7 @@ func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.notificationService.MarkNotificationAsRead(context.Background(), notificationID)
+	err = h.notificationService.MarkNotificationAsRead(context.Background(), notificationID, uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to mark notification as read",
@@ -324,7 +324,7 @@ func (h *NotificationHandler) GetUnreadNotificationCount(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"unread_count": count,
+		"unreadCount": count,
 	})
 }
 
@@ -354,5 +354,8 @@ func (h *NotificationHandler) GetNotificationStats(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(stats)
+	// convert to Go format
+	statsResponse := mappers.MapNotificationStatsGoToFrontend(stats)
+
+	return c.Status(fiber.StatusOK).JSON(statsResponse)
 }
