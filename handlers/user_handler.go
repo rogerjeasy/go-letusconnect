@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"strings"
 
@@ -186,4 +187,177 @@ func GetAllUsers(c *fiber.Ctx) error {
 		"message": "Users retrieved successfully",
 		"users":   users,
 	})
+}
+
+func GetProfileCompletion(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	userDetails, err := services.GetUserByUID(uid)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+
+	// Calculate filled fields for each component
+	filledFields := 0
+	totalFields := 19 // Total number of fields excluding system fields
+	missingFields := make([]string, 0)
+	user := mappers.MapBackendToUser(userDetails)
+
+	// User basic info with missing fields tracking
+	if user.Username != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "username")
+	}
+
+	if user.FirstName != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "First name")
+	}
+
+	if user.LastName != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Last name")
+	}
+
+	if user.Email != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Email")
+	}
+
+	if user.PhoneNumber != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Phone number")
+	}
+
+	if user.ProfilePicture != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Profile picture")
+	}
+
+	if user.Bio != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Bio")
+	}
+
+	if len(user.Role) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Role")
+	}
+
+	if user.GraduationYear > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Graduation year")
+	}
+
+	if user.CurrentJobTitle != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Current job title")
+	}
+
+	if len(user.AreasOfExpertise) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Areas of expertise")
+	}
+
+	if len(user.Interests) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Interests")
+	}
+
+	if user.Program != "" {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Program")
+	}
+
+	// if user.DateOfBirth != "" {
+	// 	filledFields++
+	// } else {
+	// 	missingFields = append(missingFields, "dateOfBirth")
+	// }
+
+	// if user.PhoneCode != "" {
+	// 	filledFields++
+	// } else {
+	// 	missingFields = append(missingFields, "phoneCode")
+	// }
+
+	if len(user.Languages) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Languages")
+	}
+
+	if len(user.Skills) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Skills")
+	}
+
+	if len(user.Certifications) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Certifications")
+	}
+
+	if len(user.Projects) > 0 {
+		filledFields++
+	} else {
+		missingFields = append(missingFields, "Projects")
+	}
+
+	// Calculate completion percentage
+	var completionPercentage float64
+	if totalFields > 0 {
+		completionPercentage = float64(filledFields) / float64(totalFields) * 100
+	}
+
+	return c.JSON(fiber.Map{
+		"completionPercentage": math.Round(completionPercentage),
+		"filledFields":         filledFields,
+		"totalFields":          totalFields,
+		"missingFields":        missingFields,
+		"profileStatus":        getProfileStatus(completionPercentage),
+	})
+}
+
+// Helper function to determine profile status
+func getProfileStatus(percentage float64) string {
+	switch {
+	case percentage >= 100:
+		return "Complete"
+	case percentage >= 80:
+		return "Almost Complete"
+	case percentage >= 50:
+		return "Partially Complete"
+	default:
+		return "Incomplete"
+	}
 }

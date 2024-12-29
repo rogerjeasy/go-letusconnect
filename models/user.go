@@ -31,6 +31,7 @@ type User struct {
 	Skills           []string `json:"skills"`
 	Certifications   []string `json:"certifications"`
 	Projects         []string `json:"projects"`
+	IsOnline         bool     `json:"is_online"`
 }
 
 type UserAddress struct {

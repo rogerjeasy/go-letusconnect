@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/firestore"
 	"firebase.google.com/go/auth"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gofiber/fiber/v2"
@@ -192,6 +193,7 @@ func Register(c *fiber.Ctx) error {
 	user.IsVerified = false
 	user.Role = []string{"user"}
 	user.Password = ""
+	user.IsOnline = true
 
 	// Convert the user struct to Firestore-compatible (snake_case) format
 	backendUser := mappers.MapUserFrontendToBackend(&user)
@@ -336,7 +338,22 @@ func Login(c *fiber.Ctx) error {
 		Secure:   true,
 	})
 
+	backendUser.IsOnline = true
+
+	// Convert the updated User struct to Firestore-compatible format
+	backendUpdates := mappers.MapUserFrontendToBackend(&backendUser)
+
+	// Update Firestore document
+	docRef := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID)
+	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update user",
+		})
+	}
+
 	// Map backend user to frontend format
+
 	frontendUser := mappers.MapUserToFrontend(&backendUser)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
@@ -347,6 +364,55 @@ func Login(c *fiber.Ctx) error {
 }
 
 func Logout(c *fiber.Ctx) error {
+
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// turn the IsOnline status to false
+	ctx := context.Background()
+	userQuery := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
+	defer userQuery.Stop()
+
+	doc, err := userQuery.Next()
+	if err == iterator.Done {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+
+	var dbUser map[string]interface{}
+	if err := doc.DataTo(&dbUser); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to retrieve user data",
+		})
+	}
+
+	backendUser := mappers.MapBackendToUser(dbUser)
+	backendUser.IsOnline = false
+
+	// Convert the updated User struct to Firestore-compatible format
+	backendUpdates := mappers.MapUserFrontendToBackend(&backendUser)
+
+	// Update Firestore document
+	docRef := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID)
+	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update user status",
+		})
+	}
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "jwt",

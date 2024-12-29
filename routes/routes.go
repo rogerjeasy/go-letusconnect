@@ -14,10 +14,11 @@ func SetupRoutes(app *fiber.App, notificationService *services.NotificationServi
 	users := api.Group("/users")
 
 	users.Get("/session", handlers.GetSession)
-	users.Post("/logout", handlers.Logout)
+	users.Patch("/logout", handlers.Logout)
 
 	users.Post("/register", handlers.Register)
 	users.Post("/login", handlers.Login)
+	users.Get("/completion", handlers.GetProfileCompletion)
 	users.Get("/", handlers.GetAllUsers)
 
 	users.Get("/:uid", handlers.GetUser)

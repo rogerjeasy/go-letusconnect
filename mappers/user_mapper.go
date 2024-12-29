@@ -33,6 +33,7 @@ func MapUserFrontendToBackend(user *models.User) map[string]interface{} {
 		"skills":                user.Skills,
 		"certifications":        user.Certifications,
 		"projects":              user.Projects,
+		"is_online":             user.IsOnline,
 	}
 }
 
@@ -65,6 +66,7 @@ func MapUserBackendToFrontend(backendUser map[string]interface{}) map[string]int
 		"skills":           backendUser["skills"],
 		"certifications":   backendUser["certifications"],
 		"projects":         backendUser["projects"],
+		"isOnline":         backendUser["is_online"],
 	}
 }
 
@@ -98,6 +100,7 @@ func MapFrontendToUser(data map[string]interface{}) models.User {
 		Skills:           getStringArrayValue(data, "skills"),
 		Certifications:   getStringArrayValue(data, "certifications"),
 		Projects:         getStringArrayValue(data, "projects"),
+		IsOnline:         getBoolValueSafe(data, "isOnline"),
 	}
 }
 
@@ -130,6 +133,7 @@ func MapBackendToUser(data map[string]interface{}) models.User {
 		Skills:           getStringArrayValue(data, "skills"),
 		Certifications:   getStringArrayValue(data, "certifications"),
 		Projects:         getStringArrayValue(data, "projects"),
+		IsOnline:         getBoolValueSafe(data, "is_online"),
 	}
 }
 
@@ -162,6 +166,7 @@ func MapUserToFrontend(user *models.User) map[string]interface{} {
 		"skills":           user.Skills,
 		"certifications":   user.Certifications,
 		"projects":         user.Projects,
+		"isOnline":         user.IsOnline,
 	}
 }
 
