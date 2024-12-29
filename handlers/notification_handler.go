@@ -296,3 +296,63 @@ func (h *NotificationHandler) ListTargetedNotifications(c *fiber.Ctx) error {
 		"notifications": notificationsResponse,
 	})
 }
+
+// GetUnreadNotificationCount returns the number of unread notifications for the authenticated user
+func (h *NotificationHandler) GetUnreadNotificationCount(c *fiber.Ctx) error {
+	// Get authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Get unread count
+	count, err := h.notificationService.CountUnreadNotifications(context.Background(), uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to count unread notifications: %v", err),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"unread_count": count,
+	})
+}
+
+// GetNotificationStats returns detailed notification statistics for the authenticated user
+func (h *NotificationHandler) GetNotificationStats(c *fiber.Ctx) error {
+	// Get authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get UID
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Get stats
+	stats, err := h.notificationService.GetNotificationStats(context.Background(), uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to get notification stats: %v", err),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(stats)
+}

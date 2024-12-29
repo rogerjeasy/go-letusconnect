@@ -121,3 +121,13 @@ type Notification struct {
 	TargetedUsers   []string               `json:"targetedUsers,omitempty" firestore:"targeted_users,omitempty"`
 	IsRead          bool                   `json:"isRead,omitempty" firestore:"is_read,omitempty"`
 }
+
+// NotificationStats represents statistics about user's notifications
+type NotificationStats struct {
+	TotalCount    int64            `json:"total_count"`
+	UnreadCount   int64            `json:"unread_count"`
+	ReadCount     int64            `json:"read_count"`
+	ArchivedCount int64            `json:"archived_count"`
+	PriorityStats map[string]int64 `json:"priority_stats"`
+	TypeStats     map[string]int64 `json:"type_stats"`
+}

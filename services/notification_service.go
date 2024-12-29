@@ -256,3 +256,73 @@ func (s *NotificationService) listTargetedNotificationsWithoutOrdering(ctx conte
 
 	return notifications, nil
 }
+
+// CountUnreadNotifications counts notifications where ReadStatus[userID] is false
+func (s *NotificationService) CountUnreadNotifications(ctx context.Context, userID string) (int64, error) {
+	query := s.firestoreClient.Collection("notifications").Where("targeted_users", "array-contains", userID)
+
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	var unreadCount int64 = 0
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return 0, fmt.Errorf("error counting unread notifications: %v", err)
+		}
+
+		notification := mappers.MapNotificationFirestoreToGo(doc.Data())
+
+		// Simply check if ReadStatus[userID] is false
+		if !notification.ReadStatus[userID] {
+			unreadCount++
+		}
+	}
+
+	return unreadCount, nil
+}
+
+func (s *NotificationService) GetNotificationStats(ctx context.Context, userID string) (models.NotificationStats, error) {
+	query := s.firestoreClient.Collection("notifications").Where("targeted_users", "array-contains", userID)
+
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	stats := models.NotificationStats{
+		PriorityStats: make(map[string]int64),
+		TypeStats:     make(map[string]int64),
+	}
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return stats, fmt.Errorf("error getting notification stats: %v", err)
+		}
+
+		notification := mappers.MapNotificationFirestoreToGo(doc.Data())
+		stats.TotalCount++
+
+		// Simply check ReadStatus[userID]
+		if notification.ReadStatus[userID] {
+			stats.ReadCount++
+		} else {
+			stats.UnreadCount++
+		}
+
+		if notification.IsArchived[userID] {
+			stats.ArchivedCount++
+		}
+
+		stats.PriorityStats[string(notification.Priority)]++
+		stats.TypeStats[string(notification.Type)]++
+	}
+
+	return stats, nil
+}
