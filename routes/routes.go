@@ -55,11 +55,11 @@ func SetupRoutes(app *fiber.App, notificationService *services.NotificationServi
 	// User School Experience Routes
 	schoolExperiences := api.Group("/school-experiences")
 	schoolExperiences.Post("/", handlers.CreateSchoolExperience)
-	schoolExperiences.Get("/:uid", handlers.GetSchoolExperience)
-	schoolExperiences.Put("/:uid/universities/:universityID", handlers.UpdateUniversity)
+	schoolExperiences.Get("/", handlers.GetSchoolExperience)
+	schoolExperiences.Put("/universities/:universityID", handlers.UpdateUniversity)
 	schoolExperiences.Delete("/:uid/universities/:universityID", handlers.DeleteUniversity)
-	schoolExperiences.Post("/:uid/universities", handlers.AddUniversity)
-	schoolExperiences.Post("/:uid/universities/bulk", handlers.AddListOfUniversities)
+	schoolExperiences.Post("/universities", handlers.AddUniversity)
+	schoolExperiences.Post("/universities/bulk", handlers.AddListOfUniversities)
 
 	// Contact Us Routes
 	contacts := api.Group("/contact-us")

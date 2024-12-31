@@ -13,10 +13,61 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-// creates a new UserSchoolExperience with an empty list of universities
+const (
+	errInvalidPayload     = "Invalid request payload"
+	errExperienceNotFound = "School experience not found"
+	errFetchExperience    = "Failed to fetch school experience"
+	errParseExperience    = "Failed to parse school experience data"
+	errAddUniversity      = "Failed to add university"
+	errAddUniversities    = "Failed to add universities"
+	msgAddSuccess         = "University added successfully"
+	msgBulkAddSuccess     = "Universities added successfully"
+)
+
+// schoolExperienceDoc represents the document and its data
+type schoolExperienceDoc struct {
+	ref        *firestore.DocumentRef
+	experience *models.UserSchoolExperience
+}
+
 func CreateSchoolExperience(c *fiber.Ctx) error {
 
-	// Extract Authorization token
+	// Extract and validate token
+	uid, err := extractAndValidateToken(c)
+	if err != nil {
+		return err
+	}
+
+	// context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = checkExistingExperience(ctx, uid)
+	if err != nil {
+		return handleFirestoreError(c, err)
+	}
+
+	experience := createNewExperience(uid)
+
+	// Save to Firestore with retry mechanism
+	err = saveExperience(ctx, experience)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": errCreateExperience,
+		})
+	}
+
+	// Return success response
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": msgCreateSuccess,
+		"data": mappers.MapUserSchoolExperienceBackendToFrontend(
+			mappers.MapUserSchoolExperienceFrontendToBackend(experience),
+		),
+	})
+}
+
+// GetUserSchoolExperience retrieves a user's school experience
+func GetSchoolExperience(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -24,66 +75,11 @@ func CreateSchoolExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate token
+	// Validate token and get UID
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid token",
-		})
-	}
-
-	ctx := context.Background()
-
-	// Use where() to check if a UserSchoolExperience already exists for this user
-	existingQuery := services.FirestoreClient.Collection("user_school_experiences").Where("uid", "==", uid).Documents(ctx)
-	defer existingQuery.Stop()
-
-	_, err = existingQuery.Next()
-	if err != iterator.Done {
-		// If a document is found
-		if err == nil {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": "School experience already exists for this user",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to check existing school experience",
-		})
-	}
-
-	// Initialize an empty UserSchoolExperience
-	currentTime := time.Now()
-
-	newExperience := models.UserSchoolExperience{
-		UID:          uid,
-		CreatedAt:    currentTime,
-		UpdatedAt:    currentTime,
-		Universities: []models.University{},
-	}
-
-	backendData := mappers.MapUserSchoolExperienceFrontendToBackend(&newExperience)
-
-	// Save to Firestore
-	_, _, err = services.FirestoreClient.Collection("user_school_experiences").Add(ctx, backendData)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create school experience",
-		})
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "School experience created successfully",
-		"data":    mappers.MapUserSchoolExperienceBackendToFrontend(backendData),
-	})
-}
-
-// GetUserSchoolExperience retrieves a user's school experience
-func GetSchoolExperience(c *fiber.Ctx) error {
-	// Extract the UID from the route parameters
-	uid := c.Params("uid")
-	if uid == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User UID is required",
 		})
 	}
 
@@ -124,10 +120,15 @@ func GetSchoolExperience(c *fiber.Ctx) error {
 
 // UpdateUniversity updates a specific university in the user's education list
 func UpdateUniversity(c *fiber.Ctx) error {
-	uid := c.Params("uid")
+	// Extract and validate token
+	uid, err := extractAndValidateToken(c)
+	if err != nil {
+		return err
+	}
+
 	universityID := c.Params("universityID")
 
-	if uid == "" || universityID == "" {
+	if universityID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "User UID and University ID are required",
 		})
@@ -194,133 +195,76 @@ func UpdateUniversity(c *fiber.Ctx) error {
 	return GetSchoolExperience(c)
 }
 
-// AddUniversity adds a new university to the user's school experience
 func AddUniversity(c *fiber.Ctx) error {
-	// Extract the UID from the route parameters
-	uid := c.Params("uid")
-	if uid == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User UID is required",
-		})
-	}
-
-	// Parse the request body to get the new university data
-	var newUniversityData map[string]interface{}
-	if err := c.BodyParser(&newUniversityData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
-		})
-	}
-
-	// Create Firestore context
-	ctx := context.Background()
-
-	// Query Firestore to locate the document by UID
-	query := services.FirestoreClient.Collection("user_school_experiences").Where("uid", "==", uid).Documents(ctx)
-	defer query.Stop()
-
-	doc, err := query.Next()
-	if err == iterator.Done {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "School experience not found",
-		})
-	}
+	// Extract and validate token
+	uid, err := extractAndValidateToken(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch school experience",
-		})
+		return err
 	}
 
-	// Parse the school experience document
-	var schoolExperience models.UserSchoolExperience
-	if err := doc.DataTo(&schoolExperience); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse school experience data",
-		})
+	// Parse and validate request body
+	var universityData map[string]interface{}
+	if err := validateRequestBody(c, &universityData); err != nil {
+		return err
 	}
 
-	// Map the incoming data to a University model
-	newUniversity := mappers.MapFrontendToUniversity(newUniversityData)
-	newUniversity.ID = services.GenerateID() // Generate a unique ID for the university
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	// Add the new university to the user's education list
-	schoolExperience.Universities = append(schoolExperience.Universities, newUniversity)
-	schoolExperience.UpdatedAt = time.Now()
-
-	// Update the document in Firestore
-	backendData := mappers.MapUserSchoolExperienceFrontendToBackend(&schoolExperience)
-	_, err = services.FirestoreClient.Collection("user_school_experiences").Doc(doc.Ref.ID).Set(ctx, backendData, firestore.MergeAll)
+	// Get school experience document
+	doc, err := getSchoolExperience(ctx, uid)
 	if err != nil {
+		return handleFirestoreError(c, err)
+	}
+
+	// Add university with transaction
+	if err := addUniversityTransaction(ctx, doc, universityData); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to add university",
+			"error": errAddUniversity,
 		})
 	}
 
-	// Reuse GetSchoolExperience to fetch and return the updated data
+	// Return updated data
 	return GetSchoolExperience(c)
 }
 
 func AddListOfUniversities(c *fiber.Ctx) error {
-	uid := c.Params("uid")
-	if uid == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User UID is required",
-		})
+	// Extract and validate token
+	uid, err := extractAndValidateToken(c)
+	if err != nil {
+		return err
 	}
 
+	// Parse and validate request body
 	var universitiesData []map[string]interface{}
-	if err := c.BodyParser(&universitiesData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload. Expected a list of universities.",
-		})
+	if err := validateRequestBody(c, &universitiesData); err != nil {
+		return err
 	}
 
-	ctx := context.Background()
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
-	// Locate the document by UID using where()
-	query := services.FirestoreClient.Collection("user_school_experiences").Where("uid", "==", uid).Documents(ctx)
-	defer query.Stop()
-
-	doc, err := query.Next()
-	if err == iterator.Done {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "School experience not found",
-		})
-	}
+	// Get school experience document
+	doc, err := getSchoolExperience(ctx, uid)
 	if err != nil {
+		return handleFirestoreError(c, err)
+	}
+
+	// Add universities with transaction
+	if err := addUniversitiesTransaction(ctx, doc, universitiesData); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch school experience",
+			"error": errAddUniversities,
 		})
 	}
 
-	// Parse the school experience document
-	var schoolExperience models.UserSchoolExperience
-	if err := doc.DataTo(&schoolExperience); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse school experience data",
-		})
-	}
-
-	// Map the incoming data to University models and append to the list
-	for _, universityData := range universitiesData {
-		newUniversity := mappers.MapFrontendToUniversity(universityData)
-		newUniversity.ID = services.GenerateID() // Generate a unique ID for each university
-		schoolExperience.Universities = append(schoolExperience.Universities, newUniversity)
-	}
-	schoolExperience.UpdatedAt = time.Now()
-
-	// Update the document in Firestore
-	backendData := mappers.MapUserSchoolExperienceFrontendToBackend(&schoolExperience)
-	_, err = services.FirestoreClient.Collection("user_school_experiences").Doc(doc.Ref.ID).Set(ctx, backendData, firestore.MergeAll)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to add universities",
-		})
-	}
-
+	// Return success response with updated data
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "Universities added successfully",
-		"data":    mappers.MapUserSchoolExperienceBackendToFrontend(backendData),
+		"message": msgBulkAddSuccess,
+		"data": mappers.MapUserSchoolExperienceBackendToFrontend(
+			mappers.MapUserSchoolExperienceFrontendToBackend(doc.experience),
+		),
 	})
 }
 
