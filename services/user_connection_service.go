@@ -57,12 +57,18 @@ func (s *UserConnectionService) GetUserConnections(ctx context.Context, uid stri
 }
 
 func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromUID, toUID, message string) error {
+
+	fromUsername, err := GetUsernameByUID(fromUID)
+	if err != nil {
+		return fmt.Errorf("failed to get username: %v", err)
+	}
 	request := models.ConnectionRequest{
-		FromUID: fromUID,
-		ToUID:   toUID,
-		Message: message,
-		SentAt:  time.Now(),
-		Status:  "pending",
+		FromUID:  fromUID,
+		FromName: fromUsername,
+		ToUID:    toUID,
+		Message:  message,
+		SentAt:   time.Now(),
+		Status:   "pending",
 	}
 
 	targetConnections, err := s.GetUserConnections(ctx, toUID)
@@ -81,10 +87,6 @@ func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromU
 		return err
 	}
 
-	fromUsername, err := GetUsernameByUID(fromUID)
-	if err != nil {
-		return fmt.Errorf("failed to get username: %v", err)
-	}
 	if err := SendConnectionRequestNotification(ctx, fromUID, fromUsername, message, toUID); err != nil {
 		fmt.Printf("Failed to send connection request notification: %v\n", err)
 	}
@@ -104,16 +106,27 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 			return err
 		}
 
+		uidUsername, err := GetUsernameByUID(toUID)
+		if err != nil {
+			return fmt.Errorf("failed to get username: %v", err)
+		}
+
 		// Create connection objects
 		now := time.Now()
 		connection1 := models.Connection{
 			TargetUID:  toUID,
+			TargetName: uidUsername,
 			SentAt:     now,
 			AcceptedAt: now,
 			Status:     "active",
 		}
+		fromUsername, err := GetUsernameByUID(fromUID)
+		if err != nil {
+			return fmt.Errorf("failed to get username: %v", err)
+		}
 		connection2 := models.Connection{
 			TargetUID:  fromUID,
+			TargetName: fromUsername,
 			SentAt:     now,
 			AcceptedAt: now,
 			Status:     "active",
@@ -135,6 +148,11 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 			mappers.MapConnectionsGoToFirestore(*toConnections))
 		if err != nil {
 			return err
+		}
+
+		// Send notification to the user who sent the request
+		if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, fromUID); err != nil {
+			fmt.Printf("Failed to send connection accepted notification: %v\n", err)
 		}
 
 		return nil

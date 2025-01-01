@@ -60,6 +60,7 @@ func mapConnectionsMapFrontendToGo(data interface{}) map[string]models.Connectio
 			if connMap, ok := v.(map[string]interface{}); ok {
 				result[k] = models.Connection{
 					TargetUID:  getStringValue(connMap, "targetUid"),
+					TargetName: getStringValue(connMap, "targetName"),
 					SentAt:     getTimeValue(connMap, "sentAt"),
 					AcceptedAt: getTimeValue(connMap, "acceptedAt"),
 					Status:     getStringValue(connMap, "status"),
@@ -76,11 +77,12 @@ func mapRequestsMapFrontendToGo(data interface{}) map[string]models.ConnectionRe
 		for k, v := range reqs {
 			if reqMap, ok := v.(map[string]interface{}); ok {
 				result[k] = models.ConnectionRequest{
-					FromUID: getStringValue(reqMap, "fromUid"),
-					ToUID:   getStringValue(reqMap, "toUid"),
-					SentAt:  getTimeValue(reqMap, "sentAt"),
-					Message: getStringValue(reqMap, "message"),
-					Status:  getStringValue(reqMap, "status"),
+					FromUID:  getStringValue(reqMap, "fromUid"),
+					FromName: getStringValue(reqMap, "fromName"),
+					ToUID:    getStringValue(reqMap, "toUid"),
+					SentAt:   getTimeValue(reqMap, "sentAt"),
+					Message:  getStringValue(reqMap, "message"),
+					Status:   getStringValue(reqMap, "status"),
 				}
 			}
 		}
@@ -93,6 +95,7 @@ func mapConnectionsMapGoToFirestore(conns map[string]models.Connection) map[stri
 	for k, v := range conns {
 		result[k] = map[string]interface{}{
 			"target_uid":  v.TargetUID,
+			"target_name": v.TargetName,
 			"sent_at":     v.SentAt,
 			"accepted_at": v.AcceptedAt,
 			"status":      v.Status,
@@ -105,11 +108,12 @@ func mapRequestsMapGoToFirestore(reqs map[string]models.ConnectionRequest) map[s
 	result := make(map[string]interface{})
 	for k, v := range reqs {
 		result[k] = map[string]interface{}{
-			"from_uid": v.FromUID,
-			"to_uid":   v.ToUID,
-			"sent_at":  v.SentAt,
-			"message":  v.Message,
-			"status":   v.Status,
+			"from_uid":  v.FromUID,
+			"from_name": v.FromName,
+			"to_uid":    v.ToUID,
+			"sent_at":   v.SentAt,
+			"message":   v.Message,
+			"status":    v.Status,
 		}
 	}
 	return result
@@ -122,6 +126,7 @@ func mapConnectionsMapFirestoreToFrontend(data interface{}) map[string]interface
 			if connMap, ok := v.(map[string]interface{}); ok {
 				result[k] = map[string]interface{}{
 					"targetUid":  getStringValue(connMap, "target_uid"),
+					"targetName": getStringValue(connMap, "target_name"),
 					"sentAt":     getTimeValue(connMap, "sent_at"),
 					"acceptedAt": getTimeValue(connMap, "accepted_at"),
 					"status":     getStringValue(connMap, "status"),
@@ -138,11 +143,12 @@ func mapRequestsMapFirestoreToFrontend(data interface{}) map[string]interface{} 
 		for k, v := range reqs {
 			if reqMap, ok := v.(map[string]interface{}); ok {
 				result[k] = map[string]interface{}{
-					"fromUid": getStringValue(reqMap, "from_uid"),
-					"toUid":   getStringValue(reqMap, "to_uid"),
-					"sentAt":  getTimeValue(reqMap, "sent_at"),
-					"message": getStringValue(reqMap, "message"),
-					"status":  getStringValue(reqMap, "status"),
+					"fromUid":  getStringValue(reqMap, "from_uid"),
+					"fromName": getStringValue(reqMap, "from_name"),
+					"toUid":    getStringValue(reqMap, "to_uid"),
+					"sentAt":   getTimeValue(reqMap, "sent_at"),
+					"message":  getStringValue(reqMap, "message"),
+					"status":   getStringValue(reqMap, "status"),
 				}
 			}
 		}
@@ -157,6 +163,7 @@ func mapConnectionsMapFirestoreToGo(data interface{}) map[string]models.Connecti
 			if connMap, ok := v.(map[string]interface{}); ok {
 				result[k] = models.Connection{
 					TargetUID:  getStringValue(connMap, "target_uid"),
+					TargetName: getStringValue(connMap, "target_name"),
 					SentAt:     getTimeValue(connMap, "sent_at"),
 					AcceptedAt: getTimeValue(connMap, "accepted_at"),
 					Status:     getStringValue(connMap, "status"),
@@ -173,11 +180,12 @@ func mapRequestsMapFirestoreToGo(data interface{}) map[string]models.ConnectionR
 		for k, v := range reqs {
 			if reqMap, ok := v.(map[string]interface{}); ok {
 				result[k] = models.ConnectionRequest{
-					FromUID: getStringValue(reqMap, "from_uid"),
-					ToUID:   getStringValue(reqMap, "to_uid"),
-					SentAt:  getTimeValue(reqMap, "sent_at"),
-					Message: getStringValue(reqMap, "message"),
-					Status:  getStringValue(reqMap, "status"),
+					FromUID:  getStringValue(reqMap, "from_uid"),
+					FromName: getStringValue(reqMap, "from_name"),
+					ToUID:    getStringValue(reqMap, "to_uid"),
+					SentAt:   getTimeValue(reqMap, "sent_at"),
+					Message:  getStringValue(reqMap, "message"),
+					Status:   getStringValue(reqMap, "status"),
 				}
 			}
 		}

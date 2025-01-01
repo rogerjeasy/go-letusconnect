@@ -43,17 +43,19 @@ type UserConnections struct {
 
 type Connection struct {
 	TargetUID  string    `json:"target_uid" bson:"target_uid"`
+	TargetName string    `json:"target_name" bson:"target_name"`
 	SentAt     time.Time `json:"sent_at" bson:"sent_at"`
 	AcceptedAt time.Time `json:"accepted_at" bson:"accepted_at"`
 	Status     string    `json:"status" bson:"status"` // active, blocked, etc.
 }
 
 type ConnectionRequest struct {
-	FromUID string    `json:"from_uid" bson:"from_uid"`
-	ToUID   string    `json:"to_uid" bson:"to_uid"`
-	SentAt  time.Time `json:"sent_at" bson:"sent_at"`
-	Message string    `json:"message" bson:"message"`
-	Status  string    `json:"status" bson:"status"` // pending, accepted, rejected
+	FromUID  string    `json:"from_uid" bson:"from_uid"`
+	FromName string    `json:"from_name" bson:"from_name"`
+	ToUID    string    `json:"to_uid" bson:"to_uid"`
+	SentAt   time.Time `json:"sent_at" bson:"sent_at"`
+	Message  string    `json:"message" bson:"message"`
+	Status   string    `json:"status" bson:"status"` // pending, accepted, rejected
 }
 
 type UserAddress struct {
