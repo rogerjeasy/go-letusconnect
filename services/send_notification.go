@@ -127,3 +127,77 @@ func SendNewGroupMessageNotification(ctx context.Context, senderID, senderName, 
 
 	return nil
 }
+
+func SendConnectionRequestNotification(ctx context.Context, fromUID, fromUsername, message, toUID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	readStatus := map[string]bool{toUID: false}
+
+	notificationService := NewNotificationService(FirestoreClient)
+	if notificationService == nil {
+		return fmt.Errorf("failed to create notification service")
+	}
+
+	if message == "" {
+		message = fromUsername + " would like to connect with you"
+	}
+
+	notification := models.Notification{
+		UserID:          fromUID,
+		ActorID:         fromUID,
+		ActorName:       fromUsername,
+		ActorType:       "user",
+		Type:            models.NotificationType("connection_request"),
+		Title:           fromUsername + " sent you a connection request",
+		Content:         message,
+		Category:        "connection",
+		Priority:        "normal",
+		Status:          "unread",
+		ReadStatus:      readStatus,
+		IsImportant:     true,
+		TargetedUsers:   []string{toUID},
+		DeliveryChannel: "push",
+	}
+
+	_, err := notificationService.CreateNotification(ctx, notification)
+	if err != nil {
+		return fmt.Errorf("failed to create notification: %v", err)
+	}
+	return nil
+}
+
+func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUsername, toUID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	readStatus := map[string]bool{toUID: false}
+
+	notificationService := NewNotificationService(FirestoreClient)
+	if notificationService == nil {
+		return fmt.Errorf("failed to create notification service")
+	}
+
+	notification := models.Notification{
+		UserID:          fromUID,
+		ActorID:         fromUID,
+		ActorName:       fromUsername,
+		ActorType:       "user",
+		Type:            models.NotificationType("connection_accepted"),
+		Title:           fromUsername + " accepted your connection request",
+		Content:         fromUsername + " has accepted your connection request",
+		Category:        "connection",
+		Priority:        "normal",
+		Status:          "unread",
+		ReadStatus:      readStatus,
+		IsImportant:     true,
+		TargetedUsers:   []string{toUID},
+		DeliveryChannel: "push",
+	}
+
+	_, err := notificationService.CreateNotification(ctx, notification)
+	if err != nil {
+		return fmt.Errorf("failed to create notification: %v", err)
+	}
+	return nil
+}

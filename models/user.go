@@ -34,6 +34,28 @@ type User struct {
 	IsOnline         bool     `json:"is_online"`
 }
 
+type UserConnections struct {
+	ID              string                       `json:"id" bson:"id"`
+	UID             string                       `json:"uid" bson:"uid"`
+	Connections     map[string]Connection        `json:"connections" bson:"connections"`
+	PendingRequests map[string]ConnectionRequest `json:"pending_requests" bson:"pending_requests"`
+}
+
+type Connection struct {
+	TargetUID  string    `json:"target_uid" bson:"target_uid"`
+	SentAt     time.Time `json:"sent_at" bson:"sent_at"`
+	AcceptedAt time.Time `json:"accepted_at" bson:"accepted_at"`
+	Status     string    `json:"status" bson:"status"` // active, blocked, etc.
+}
+
+type ConnectionRequest struct {
+	FromUID string    `json:"from_uid" bson:"from_uid"`
+	ToUID   string    `json:"to_uid" bson:"to_uid"`
+	SentAt  time.Time `json:"sent_at" bson:"sent_at"`
+	Message string    `json:"message" bson:"message"`
+	Status  string    `json:"status" bson:"status"` // pending, accepted, rejected
+}
+
 type UserAddress struct {
 	ID          string `json:"id"`
 	UID         string `json:"uid"`

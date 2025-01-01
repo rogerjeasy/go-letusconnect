@@ -31,7 +31,7 @@ const (
 	NotificationTypeFeedback         NotificationType = "feedback"
 	NotificationTypeAnnouncement     NotificationType = "announcement"
 	NotificationTypeMeeting          NotificationType = "meeting"
-	NotificationTypeRequest          NotificationType = "request"
+	NotificationTypeRequest          NotificationType = "connection_request"
 	NotificationTypeApproval         NotificationType = "approval"
 	NotificationTypeReview           NotificationType = "review"
 	NotificationTypeFeedbackLoop     NotificationType = "feedback_loop"
