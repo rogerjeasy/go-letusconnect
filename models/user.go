@@ -32,6 +32,7 @@ type User struct {
 	Certifications   []string `json:"certifications"`
 	Projects         []string `json:"projects"`
 	IsOnline         bool     `json:"is_online"`
+	IsPrivate        bool     `json:"is_private"`
 }
 
 type UserConnections struct {

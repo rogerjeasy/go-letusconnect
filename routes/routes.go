@@ -19,9 +19,9 @@ func SetupRoutes(app *fiber.App, notificationService *services.NotificationServi
 	users.Post("/register", handlers.Register)
 	users.Post("/login", handlers.Login)
 	users.Get("/completion", handlers.GetProfileCompletion)
+	users.Get("/:uid", handlers.GetUser)
 	users.Get("/", handlers.GetAllUsers)
 
-	users.Get("/:uid", handlers.GetUser)
 	users.Put("/:uid", handlers.UpdateUser)
 
 	// Notification Routes

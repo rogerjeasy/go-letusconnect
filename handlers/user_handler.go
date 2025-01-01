@@ -9,7 +9,6 @@ import (
 	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
-	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
 	"google.golang.org/api/iterator"
 )
@@ -127,31 +126,62 @@ func GetUser(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
+	userQuery := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
+	defer userQuery.Stop()
 
-	doc, err := services.FirestoreClient.Collection("users").Doc(uid).Get(ctx)
-	if err != nil {
-		if err == iterator.Done {
-			return c.Status(http.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+	doc, err := userQuery.Next()
+	if err == iterator.Done {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+
+	userGoStruct := mappers.MapBackendToUser(doc.Data())
+	if userGoStruct.IsPrivate {
+		token := strings.TrimPrefix(c.Get("Authorization"), "Bearer ")
+		if token == "" {
+			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+				"error":     "This account is private",
+				"isPrivate": true,
 			})
 		}
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user",
-		})
+
+		// Validate token and check if requester is connected to user
+		requesterUID, err := validateToken(token)
+		if err != nil || !isConnected(ctx, requesterUID, uid) {
+			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+				"error":     "This account is private",
+				"isPrivate": true,
+			})
+		}
 	}
 
-	var user models.User
-	if err := doc.DataTo(&user); err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse user data",
-		})
-	}
-
-	frontendUser := mappers.MapUserBackendToFrontend(mappers.MapUserFrontendToBackend(&user))
+	frontendUser := mappers.MapUserBackendToFrontend(doc.Data())
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "User retrieved successfully",
 		"user":    frontendUser,
 	})
+}
+
+func isConnected(ctx context.Context, requesterUID, targetUID string) bool {
+	connectionsRef := services.FirestoreClient.Collection("connections")
+	query := connectionsRef.Where("status", "==", "accepted").
+		Where("users", "array-contains", requesterUID)
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return false
+	}
+
+	for _, doc := range docs {
+		users := doc.Data()["users"].([]interface{})
+		for _, user := range users {
+			if user.(string) == targetUID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetAllUsers retrieves all users from the Firestore "users" collection
