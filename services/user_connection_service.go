@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -39,20 +40,50 @@ func (s *UserConnectionService) CreateUserConnections(ctx context.Context, uid s
 	return &connections, nil
 }
 
-func (s *UserConnectionService) GetUserConnections(ctx context.Context, uid string) (*models.UserConnections, error) {
+func (s *UserConnectionService) CheckUserConnectionsExist(ctx context.Context, uid string) (bool, string, error) {
 	query := s.firestoreClient.Collection("user_connections").Where("uid", "==", uid).Limit(1)
 	iter := query.Documents(ctx)
 	doc, err := iter.Next()
 
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			// Create new connections if none exist
-			return s.CreateUserConnections(ctx, uid)
+		if status.Code(err) == codes.NotFound || err == iterator.Done {
+			return false, "", nil
 		}
-		return nil, fmt.Errorf("failed to get user connections: %v", err)
+		return false, "", fmt.Errorf("failed to check user connections: %v", err)
 	}
 
-	connections := mappers.MapConnectionsFirestoreToGo(doc.Data())
+	return true, doc.Ref.ID, nil
+}
+
+// Update GetUserConnections to use this check
+func (s *UserConnectionService) GetUserConnections(ctx context.Context, uid string) (*models.UserConnections, error) {
+	if s.firestoreClient == nil {
+		return nil, fmt.Errorf("firestore client not initialized")
+	}
+
+	exists, docID, err := s.CheckUserConnectionsExist(ctx, uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check user connections: %v", err)
+	}
+
+	if !exists {
+		// Create new connections if none exist
+		return s.CreateUserConnections(ctx, uid)
+	}
+
+	// Get existing connections
+	doc, err := s.firestoreClient.Collection("user_connections").Doc(docID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user connections document: %v", err)
+	}
+
+	data := doc.Data()
+	if data == nil {
+		// If document exists but is empty, create new connections
+		return s.CreateUserConnections(ctx, uid)
+	}
+
+	connections := mappers.MapConnectionsFirestoreToGo(data)
 	return &connections, nil
 }
 

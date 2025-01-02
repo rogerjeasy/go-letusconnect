@@ -14,6 +14,7 @@ func SetupUserConnectionRoutes(app *fiber.App, connectionService *services.UserC
 
 	// Get user's connections and pending requests
 	connections.Get("/", connectionHandler.GetUserConnections)
+	connections.Get("/:uid", connectionHandler.GetUserConnectionsByUID)
 
 	// Connection requests
 	connections.Post("/requests", connectionHandler.SendConnectionRequest)

@@ -46,6 +46,36 @@ func (h *UserConnectionHandler) GetUserConnections(c *fiber.Ctx) error {
 	))
 }
 
+func (h *UserConnectionHandler) GetUserConnectionsByUID(c *fiber.Ctx) error {
+	targetUID := c.Params("uid")
+	if targetUID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "User ID is required",
+		})
+	}
+
+	connections, err := h.connectionService.GetUserConnections(context.Background(), targetUID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch connections",
+		})
+	}
+
+	if connections == nil {
+		return c.JSON(fiber.Map{
+			"message": "No connections found",
+			"data":    nil,
+		})
+	}
+	frontend := mappers.MapConnectionsFirestoreToFrontend(
+		mappers.MapConnectionsGoToFirestore(*connections),
+	)
+	connectionsMap := frontend["connections"].(map[string]interface{})
+	return c.JSON(fiber.Map{
+		"connections": connectionsMap,
+	})
+}
+
 func (h *UserConnectionHandler) SendConnectionRequest(c *fiber.Ctx) error {
 	fromUID, err := validateToken(strings.TrimPrefix(c.Get("Authorization"), "Bearer "))
 	if err != nil {
