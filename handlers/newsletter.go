@@ -13,8 +13,18 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type NewsletterHandler struct {
+	newsletterService *services.NewsletterService
+}
+
+func NewNewsletterHandler(newsletterService *services.NewsletterService) *NewsletterHandler {
+	return &NewsletterHandler{
+		newsletterService: newsletterService,
+	}
+}
+
 // SubscribeNewsletter handles newsletter subscriptions
-func SubscribeNewsletter(c *fiber.Ctx) error {
+func (s *NewsletterHandler) SubscribeNewsletter(c *fiber.Ctx) error {
 	// Parse the request body for the email
 	var requestData struct {
 		Email string `json:"email"`
@@ -73,7 +83,7 @@ func SubscribeNewsletter(c *fiber.Ctx) error {
 }
 
 // UnsubscribeNewsletter handles removing a user's email from the newsletter subscriptions
-func UnsubscribeNewsletter(c *fiber.Ctx) error {
+func (s *NewsletterHandler) UnsubscribeNewsletter(c *fiber.Ctx) error {
 	// Parse the request body for the email
 	var requestData struct {
 		Email string `json:"email"`
@@ -127,7 +137,7 @@ func UnsubscribeNewsletter(c *fiber.Ctx) error {
 }
 
 // GetAllSubscribers retrieves a list of all subscribed users
-func GetAllSubscribers(c *fiber.Ctx) error {
+func (s *NewsletterHandler) GetAllSubscribers(c *fiber.Ctx) error {
 	ctx := context.Background()
 	newsletterCollection := services.FirestoreClient.Collection("newsletters")
 
@@ -158,7 +168,7 @@ func GetAllSubscribers(c *fiber.Ctx) error {
 }
 
 // GetTotalSubscribers returns the total number of subscribed users
-func GetTotalSubscribers(c *fiber.Ctx) error {
+func (s *NewsletterHandler) GetTotalSubscribers(c *fiber.Ctx) error {
 	ctx := context.Background()
 	newsletterCollection := services.FirestoreClient.Collection("newsletters")
 

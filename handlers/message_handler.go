@@ -16,8 +16,20 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type MessageHandler struct {
+	MessageService *services.MessageService
+	UserService    *services.UserService
+}
+
+func NewMessageHandler(messageService *services.MessageService, userService *services.UserService) *MessageHandler {
+	return &MessageHandler{
+		MessageService: messageService,
+		UserService:    userService,
+	}
+}
+
 // SendMessage handles sending a message and triggering a Pusher event
-func SendMessage(c *fiber.Ctx) error {
+func (m *MessageHandler) SendMessage(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -77,7 +89,7 @@ func SendMessage(c *fiber.Ctx) error {
 }
 
 // GetMessages retrieves all messages for the authenticated user
-func GetMessages(c *fiber.Ctx) error {
+func (m *MessageHandler) GetMessages(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -135,7 +147,7 @@ func GetMessages(c *fiber.Ctx) error {
 }
 
 // SendTyping handles the typing event and triggers a Pusher event
-func SendTyping(c *fiber.Ctx) error {
+func (m *MessageHandler) SendTyping(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -193,7 +205,7 @@ func SendTyping(c *fiber.Ctx) error {
 }
 
 // SendDirectMessage handles sending a direct message and triggering a Pusher event
-func SendDirectMessage(c *fiber.Ctx) error {
+func (m *MessageHandler) SendDirectMessage(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -218,7 +230,7 @@ func SendDirectMessage(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "receiverId is required."})
 	}
 
-	receiverUser, err := services.GetUserByUID(receiverUserUid)
+	receiverUser, err := m.UserService.GetUserByUID(receiverUserUid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch receiver details",
@@ -311,7 +323,7 @@ func SendDirectMessage(c *fiber.Ctx) error {
 }
 
 // GetDirectMessages fetches direct messages for the authenticated user based on their UID
-func GetDirectMessages(c *fiber.Ctx) error {
+func (m *MessageHandler) GetDirectMessages(c *fiber.Ctx) error {
 
 	// Extract the Authorization token
 	token := c.Get("Authorization")

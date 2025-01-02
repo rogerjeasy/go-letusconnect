@@ -5,17 +5,28 @@ import (
 	"errors"
 	"time"
 
+	"cloud.google.com/go/firestore"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/api/iterator"
 )
 
+type AddressService struct {
+	FirestoreClient *firestore.Client
+}
+
+func NewAddressService(client *firestore.Client) *AddressService {
+	return &AddressService{
+		FirestoreClient: client,
+	}
+}
+
 // GetUserAddresses retrieves all addresses for a given user UID
-func GetUserAddresses(uid string) ([]models.UserAddress, error) {
+func (a *AddressService) GetUserAddresses(uid string) ([]models.UserAddress, error) {
 	ctx := context.Background()
 
 	// Query Firestore for user addresses
-	docRef := FirestoreClient.Collection("user_addresses").Where("uid", "==", uid).Documents(ctx)
+	docRef := a.FirestoreClient.Collection("user_addresses").Where("uid", "==", uid).Documents(ctx)
 	defer docRef.Stop()
 
 	var addresses []models.UserAddress
@@ -38,12 +49,11 @@ func GetUserAddresses(uid string) ([]models.UserAddress, error) {
 	return addresses, nil
 }
 
-// GetUserSchoolExperience fetches the school experience for a given user UID
-func GetUserSchoolExperience(uid string) (*models.UserSchoolExperience, error) {
+func (a *AddressService) GetUserSchoolExperience(uid string) (*models.UserSchoolExperience, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find school experience document
-	query := FirestoreClient.Collection("school_experiences").Where("uid", "==", uid).Limit(1).Documents(ctx)
+	query := a.FirestoreClient.Collection("school_experiences").Where("uid", "==", uid).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	doc, err := query.Next()
@@ -102,11 +112,11 @@ func GetUserSchoolExperience(uid string) (*models.UserSchoolExperience, error) {
 }
 
 // GetUserWorkExperience fetches the work experience for a given user UID
-func GetUserWorkExperience(uid string) (*models.UserWorkExperience, error) {
+func (a *AddressService) GetUserWorkExperience(uid string) (*models.UserWorkExperience, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find work experience document
-	query := FirestoreClient.Collection("work_experiences").Where("uid", "==", uid).Limit(1).Documents(ctx)
+	query := a.FirestoreClient.Collection("work_experiences").Where("uid", "==", uid).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	doc, err := query.Next()

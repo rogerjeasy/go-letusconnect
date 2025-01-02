@@ -15,9 +15,20 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
+type ProjectHandler struct {
+	projectService *services.ProjectService
+	userService    *services.UserService
+}
+
+func NewProjectHandler(projectService *services.ProjectService) *ProjectHandler {
+	return &ProjectHandler{
+		projectService: projectService,
+	}
+}
+
 // JoinProject handles applying to join a project
-func JoinProjectCollab(c *fiber.Ctx) error {
-	// Extract the Authorization token
+func (h *ProjectHandler) JoinProjectCollab(c *fiber.Ctx) error {
+	// Extract and validate token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -25,7 +36,6 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate token and get UID
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -33,6 +43,7 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get project ID
 	projectID := c.Params("id")
 	if projectID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -40,7 +51,7 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the join request message
+	// Parse request body
 	var requestData struct {
 		Message string `json:"message"`
 	}
@@ -50,87 +61,32 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := services.GetUserByUID(uid)
+	// Call service method
+	err = h.projectService.JoinProject(c.Context(), projectID, uid, requestData.Message)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user details",
-		})
-	}
-
-	// Create the join request
-	joinRequest := models.JoinRequest{
-		UserID:         uid,
-		Username:       user["username"].(string),
-		ProfilePicture: user["profile_picture"].(string),
-		Email:          user["email"].(string),
-		Message:        "Request to join the project",
-		RequestedAt:    time.Now(),
-		Status:         "pending",
-	}
-
-	ctx := context.Background()
-
-	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Project not found",
-		})
-	}
-
-	projectData := doc.Data()
-
-	if projectData["status"] == "completed" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "This project has been completed. You cannot join a completed project.",
-		})
-	}
-
-	// Check if the user is the owner of the project
-	if projectData["owner_id"] == uid {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Owners cannot join their own project",
-		})
-	}
-
-	// Check if the user has already applied
-	joinRequests := mappers.GetJoinRequestsArray(projectData, "join_requests")
-	for _, jr := range joinRequests {
-		if jr.UserID == uid {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "You have already applied to join this project",
-			})
-		}
-	}
-
-	// Check if the user was previously rejected
-	rejectedParticipants := projectData["rejected_participants"].([]interface{})
-	for _, rejectedUID := range rejectedParticipants {
-		if rejectedUID == uid {
+		switch err.Error() {
+		case "project not found":
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		case "this project has been completed":
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		case "owners cannot join their own project":
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		case "you have already applied to join this project":
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		case "your request was previously rejected":
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "Your request to join this project was previously rejected. Please contact the project owner for further assistance.",
 			})
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to process join request"})
 		}
 	}
 
-	// convert joinRequest to map[string]interface{} for Firestore
-	joinRequestMap := mappers.MapJoinRequestGoToFirestore(joinRequest)
-
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
-		{Path: "join_requests", Value: firestore.ArrayUnion(joinRequestMap)},
-	})
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to apply to join project",
-		})
-	}
-
-	// Send confirmation email
-	projectName := projectData["title"].(string)
-	if err := SendJoinRequestSubmittedEmail(user["email"].(string), user["username"].(string), projectName); err != nil {
-		log.Printf("Error sending join request submitted email: %v", err)
-	}
+	// Send email notification
+	// user, err := h.userService.GetUserByUID(uid)
+	// if err := SendJoinRequestSubmittedEmail(user[], user.Username, projectName); err != nil {
+	//     log.Printf("Error sending join request submitted email: %v", err)
+	// }
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Join request submitted successfully",
@@ -138,7 +94,7 @@ func JoinProjectCollab(c *fiber.Ctx) error {
 }
 
 // RemoveParticipantCollab handles removing a participant from a project
-func RemoveParticipantCollab(c *fiber.Ctx) error {
+func (h *ProjectHandler) RemoveParticipantCollab(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -228,7 +184,7 @@ func RemoveParticipantCollab(c *fiber.Ctx) error {
 }
 
 // HandleJoinRequest handles accepting or rejecting join requests
-func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
+func (h *ProjectHandler) AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -405,7 +361,7 @@ func AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 }
 
 // InviteUserCollab handles inviting a user to a project
-func InviteUserCollab(c *fiber.Ctx) error {
+func (h *ProjectHandler) InviteUserCollab(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -472,10 +428,10 @@ func InviteUserCollab(c *fiber.Ctx) error {
 
 	if strings.Contains(requestData.EmailOrUsername, "@") {
 		// Handle invitation by email
-		user, err = services.GetUserByEmail(requestData.EmailOrUsername)
+		user, err = h.userService.GetUserByEmail(requestData.EmailOrUsername)
 	} else {
 		// Handle invitation by username
-		user, err = services.GetUserByUsername(requestData.EmailOrUsername)
+		user, err = h.userService.GetUserByEmail(requestData.EmailOrUsername)
 	}
 
 	if err != nil {
@@ -538,7 +494,7 @@ func InviteUserCollab(c *fiber.Ctx) error {
 
 	// Send invitation email
 	projectName := projectData["title"].(string)
-	ownernerName, err := services.GetUsernameByUID(uid)
+	ownernerName, err := h.userService.GetUsernameByUID(uid)
 	if err != nil {
 		log.Printf("Error fetching project owner's username: %v", err)
 		ownernerName = "Project Owner"
@@ -554,7 +510,7 @@ func InviteUserCollab(c *fiber.Ctx) error {
 }
 
 // AddTask handles adding a task to a project
-func AddTask(c *fiber.Ctx) error {
+func (h *ProjectHandler) AddTask(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -643,7 +599,7 @@ func AddTask(c *fiber.Ctx) error {
 }
 
 // UpdateTask handles updating task details
-func UpdateTask(c *fiber.Ctx) error {
+func (h *ProjectHandler) UpdateTask(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -746,7 +702,7 @@ func UpdateTask(c *fiber.Ctx) error {
 }
 
 // DeleteTask handles deleting a task from a project
-func DeleteTask(c *fiber.Ctx) error {
+func (h *ProjectHandler) DeleteTask(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {

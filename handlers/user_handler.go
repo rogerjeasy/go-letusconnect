@@ -13,7 +13,17 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func UpdateUser(c *fiber.Ctx) error {
+type UserHandler struct {
+	userService *services.UserService
+}
+
+func NewUserHandler(userService *services.UserService) *UserHandler {
+	return &UserHandler{
+		userService: userService,
+	}
+}
+
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	// Extract Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -117,7 +127,7 @@ func UpdateUser(c *fiber.Ctx) error {
 	})
 }
 
-func GetUser(c *fiber.Ctx) error {
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	uid := c.Params("uid")
 	if strings.TrimSpace(uid) == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
@@ -185,7 +195,7 @@ func isConnected(ctx context.Context, requesterUID, targetUID string) bool {
 }
 
 // GetAllUsers retrieves all users from the Firestore "users" collection
-func GetAllUsers(c *fiber.Ctx) error {
+func (h *UserHandler) GetAllUsers(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Query all documents in the "users" collection
@@ -219,7 +229,7 @@ func GetAllUsers(c *fiber.Ctx) error {
 	})
 }
 
-func GetProfileCompletion(c *fiber.Ctx) error {
+func (h *UserHandler) GetProfileCompletion(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -235,7 +245,7 @@ func GetProfileCompletion(c *fiber.Ctx) error {
 		})
 	}
 
-	userDetails, err := services.GetUserByUID(uid)
+	userDetails, err := h.userService.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",

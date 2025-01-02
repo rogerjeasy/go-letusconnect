@@ -13,8 +13,19 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
+type GroupChatHandler struct {
+	GroupChatService *services.GroupChatService
+	UserService      *services.UserService
+}
+
+func NewGroupChatHandler(groupChatService *services.GroupChatService) *GroupChatHandler {
+	return &GroupChatHandler{
+		GroupChatService: groupChatService,
+	}
+}
+
 // CreateGroupChat handles the HTTP request for creating a new group chat
-func CreateGroupChatF(c *fiber.Ctx) error {
+func (h *GroupChatHandler) CreateGroupChatF(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -32,7 +43,7 @@ func CreateGroupChatF(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's details
-	user, err := services.GetUserByUID(uid)
+	user, err := h.UserService.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -101,7 +112,7 @@ func CreateGroupChatF(c *fiber.Ctx) error {
 }
 
 // AddParticipantsToGroupChatHandler handles updating the participants list of a group chat
-func AddParticipantsToGroupChatHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) AddParticipantsToGroupChatHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -171,7 +182,7 @@ func AddParticipantsToGroupChatHandler(c *fiber.Ctx) error {
 	})
 }
 
-func GetGroupChat(c *fiber.Ctx) error {
+func (h *GroupChatHandler) GetGroupChat(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -210,7 +221,7 @@ func GetGroupChat(c *fiber.Ctx) error {
 	})
 }
 
-func GetGroupChatsByProject(c *fiber.Ctx) error {
+func (h *GroupChatHandler) GetGroupChatsByProject(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -249,7 +260,7 @@ func GetGroupChatsByProject(c *fiber.Ctx) error {
 	})
 }
 
-func GetMyGroupChats(c *fiber.Ctx) error {
+func (h *GroupChatHandler) GetMyGroupChats(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -280,7 +291,7 @@ func GetMyGroupChats(c *fiber.Ctx) error {
 	})
 }
 
-func SendMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) SendMessageHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -313,7 +324,7 @@ func SendMessageHandler(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's details
-	user, err := services.GetUserByUID(uid)
+	user, err := h.UserService.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -419,7 +430,7 @@ func SendMessageHandler(c *fiber.Ctx) error {
 	})
 }
 
-func MarkMessagesAsReadHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) MarkMessagesAsReadHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -459,7 +470,7 @@ func MarkMessagesAsReadHandler(c *fiber.Ctx) error {
 	})
 }
 
-func CountUnreadMessagesHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) CountUnreadMessagesHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -517,7 +528,7 @@ func CountUnreadMessagesHandler(c *fiber.Ctx) error {
 	})
 }
 
-func RemoveParticipantsFromGroupChatHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) RemoveParticipantsFromGroupChatHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -574,7 +585,7 @@ func RemoveParticipantsFromGroupChatHandler(c *fiber.Ctx) error {
 	})
 }
 
-func ReplyToMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) ReplyToMessageHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -620,7 +631,7 @@ func ReplyToMessageHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	senderDetails, err := services.GetUserByUID(senderID)
+	senderDetails, err := h.UserService.GetUserByUID(senderID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -644,7 +655,7 @@ func ReplyToMessageHandler(c *fiber.Ctx) error {
 	})
 }
 
-func AttachFilesToMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) AttachFilesToMessageHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -686,7 +697,7 @@ func AttachFilesToMessageHandler(c *fiber.Ctx) error {
 
 	// Call the service to attach files to the message
 	ctx := context.Background()
-	senderDetails, err := services.GetUserByUID(senderID)
+	senderDetails, err := h.UserService.GetUserByUID(senderID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -707,7 +718,7 @@ func AttachFilesToMessageHandler(c *fiber.Ctx) error {
 	})
 }
 
-func PinMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) PinMessageHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -762,7 +773,7 @@ func PinMessageHandler(c *fiber.Ctx) error {
 	})
 }
 
-func GetPinnedMessagesHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) GetPinnedMessagesHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -811,7 +822,7 @@ func GetPinnedMessagesHandler(c *fiber.Ctx) error {
 	})
 }
 
-func UnpinMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) UnpinMessageHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -866,7 +877,7 @@ func UnpinMessageHandler(c *fiber.Ctx) error {
 	})
 }
 
-func ReactToMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) ReactToMessageHandler(c *fiber.Ctx) error {
 	var requestData struct {
 		GroupChatID string `json:"groupChatId"`
 		MessageID   string `json:"messageId"`
@@ -889,7 +900,7 @@ func ReactToMessageHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Reaction added successfully"})
 }
 
-func GetMessageReadReceiptsHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) GetMessageReadReceiptsHandler(c *fiber.Ctx) error {
 	groupChatID := c.Params("groupChatId")
 	messageID := c.Params("messageId")
 
@@ -901,7 +912,7 @@ func GetMessageReadReceiptsHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"readReceipts": receipts})
 }
 
-func SetParticipantRoleHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) SetParticipantRoleHandler(c *fiber.Ctx) error {
 	var requestData struct {
 		GroupChatID   string `json:"groupChatId"`
 		ParticipantID string `json:"participantId"`
@@ -924,7 +935,7 @@ func SetParticipantRoleHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Role updated successfully"})
 }
 
-func MuteParticipantHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) MuteParticipantHandler(c *fiber.Ctx) error {
 	var requestData struct {
 		GroupChatID   string `json:"groupChatId"`
 		ParticipantID string `json:"participantId"`
@@ -948,7 +959,7 @@ func MuteParticipantHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Participant muted successfully"})
 }
 
-func UpdateLastSeenHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) UpdateLastSeenHandler(c *fiber.Ctx) error {
 	groupChatID := c.Params("groupChatId")
 
 	userID, err := validateToken(c.Get("Authorization"))
@@ -964,7 +975,7 @@ func UpdateLastSeenHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Last seen updated successfully"})
 }
 
-func ArchiveGroupChatHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) ArchiveGroupChatHandler(c *fiber.Ctx) error {
 	groupChatID := c.Params("groupChatId")
 
 	userID, err := validateToken(c.Get("Authorization"))
@@ -980,7 +991,7 @@ func ArchiveGroupChatHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Group chat archived successfully"})
 }
 
-func LeaveGroupHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) LeaveGroupHandler(c *fiber.Ctx) error {
 	groupChatID := c.Params("groupChatId")
 
 	// Extract the Authorization token
@@ -1007,7 +1018,7 @@ func LeaveGroupHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Successfully left the group"})
 }
 
-func CreatePollHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) CreatePollHandler(c *fiber.Ctx) error {
 	var requestData struct {
 		GroupChatID string      `json:"groupChatId"`
 		Poll        models.Poll `json:"poll"`
@@ -1030,7 +1041,7 @@ func CreatePollHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"poll": poll})
 }
 
-func ReportMessageHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) ReportMessageHandler(c *fiber.Ctx) error {
 	var requestData struct {
 		GroupChatID string `json:"groupChatId"`
 		MessageID   string `json:"messageId"`
@@ -1055,7 +1066,7 @@ func ReportMessageHandler(c *fiber.Ctx) error {
 }
 
 // UpdateGroupSettingsHandler handles the HTTP request to update group settings
-func UpdateGroupSettingsHandler(c *fiber.Ctx) error {
+func (h *GroupChatHandler) UpdateGroupSettingsHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {

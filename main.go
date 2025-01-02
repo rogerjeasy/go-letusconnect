@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os/signal"
 
 	"os"
 
@@ -28,28 +30,59 @@ func main() {
 	// Initialize Cloudinary
 	services.InitCloudinary()
 
-	notificationService := services.NewNotificationService(services.FirestoreClient)
-	connectionService := services.NewUserConnectionService(services.FirestoreClient)
+	// notificationService := services.NewNotificationService(services.FirestoreClient)
+	// connectionService := services.NewUserConnectionService(services.FirestoreClient)
+	userService := services.NewUserService(services.FirestoreClient)
+
+	serviceContainer := &services.ServiceContainer{
+		UserService:         userService,
+		ConnectionService:   services.NewUserConnectionService(services.FirestoreClient, userService), // Pass userService here
+		NotificationService: services.NewNotificationService(services.FirestoreClient),
+		AuthService:         services.NewAuthService(services.FirestoreClient),
+		FAQService:          services.NewFAQService(services.FirestoreClient),
+		ProjectCoreService:  services.NewProjectCoreService(services.FirestoreClient),
+		ProjectService:      services.NewProjectService(services.FirestoreClient, userService),
+		MessageService:      services.NewMessageService(services.FirestoreClient),
+		GroupChatService:    services.NewGroupChatService(services.FirestoreClient),
+	}
+
+	// Initialize ServiceContainer with all services
+	// serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService)
 
 	app := fiber.New()
 
-	// Enable CORS middleware
+	// Improved CORS configuration
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000, https://letusconnect.vercel.app",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+		AllowOrigins:     "https://letusconnect.vercel.app, http://localhost:3000",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
+		AllowMethods:     "GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS",
 		AllowCredentials: true,
-		ExposeHeaders:    "Authorization",
+		ExposeHeaders:    "Content-Length, Authorization",
+		MaxAge:           86400,
+		AllowOriginsFunc: func(origin string) bool {
+			return origin == "https://letusconnect.vercel.app" ||
+				origin == "http://localhost:3000"
+		},
 	}))
 
-	// Setup routes
-	routes.SetupRoutes(app, notificationService)
-	routes.SetupUserConnectionRoutes(app, connectionService)
+	routes.SetupAllRoutes(app, serviceContainer)
 
-	// Start the server on the port provided by Render
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	log.Fatal(app.Listen(":" + port))
+
+	// Add graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		_ = <-c
+		fmt.Println("Gracefully shutting down...")
+		_ = app.Shutdown()
+	}()
+
+	// Start server with error handling
+	if err := app.Listen(":" + port); err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
 }

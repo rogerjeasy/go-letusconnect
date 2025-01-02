@@ -19,6 +19,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type GroupChatService struct {
+	firestoreClient *firestore.Client
+}
+
+func NewGroupChatService(client *firestore.Client) *GroupChatService {
+	return &GroupChatService{
+		firestoreClient: client,
+	}
+}
+
 type GroupChatInput struct {
 	ProjectID      string
 	Name           string

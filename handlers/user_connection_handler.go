@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -71,8 +72,10 @@ func (h *UserConnectionHandler) GetUserConnectionsByUID(c *fiber.Ctx) error {
 		mappers.MapConnectionsGoToFirestore(*connections),
 	)
 	connectionsMap := frontend["connections"].(map[string]interface{})
+	pendingRequestMap := frontend["pendingRequests"].(map[string]interface{})
 	return c.JSON(fiber.Map{
-		"connections": connectionsMap,
+		"connections":     connectionsMap,
+		"pendingRequests": pendingRequestMap,
 	})
 }
 
@@ -185,5 +188,120 @@ func (h *UserConnectionHandler) RemoveConnection(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Connection removed successfully",
+	})
+}
+
+func (h *UserConnectionHandler) GetConnectionRequests(c *fiber.Ctx) error {
+	uid, err := validateToken(strings.TrimPrefix(c.Get("Authorization"), "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	connections, err := h.connectionService.GetUserConnections(context.Background(), uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch connection requests",
+		})
+	}
+
+	if connections == nil {
+		return c.JSON(fiber.Map{
+			"pendingRequests": make(map[string]interface{}),
+			"sentRequests":    make(map[string]interface{}),
+		})
+	}
+
+	// // Map the data to frontend format
+	// frontend := mappers.MapConnectionsFirestoreToFrontend(
+	// 	mappers.MapConnectionsGoToFirestore(*connections),
+	// )
+
+	frontend := mappers.MapConnectionsGoToFrontend(*connections)
+	// Extract only the requests data
+	pendingRequests := frontend["pendingRequests"]
+	sentRequests := frontend["sentRequests"]
+
+	return c.JSON(fiber.Map{
+		"pendingRequests": pendingRequests,
+		"sentRequests":    sentRequests,
+		"message":         "Connection requests fetched successfully",
+	})
+}
+
+func (h *UserConnectionHandler) UpdateRequestStatus(c *fiber.Ctx) error {
+	toUID, err := validateToken(strings.TrimPrefix(c.Get("Authorization"), "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	requestID := c.Params("requestId")
+	if requestID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Request ID is required",
+		})
+	}
+
+	// Parse the status update request
+	var updateRequest struct {
+		Status string `json:"status"` // "accepted" or "rejected"
+	}
+	if err := c.BodyParser(&updateRequest); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate status
+	switch updateRequest.Status {
+	case "accepted":
+		err = h.connectionService.AcceptConnectionRequest(context.Background(), requestID, toUID)
+	case "rejected":
+		err = h.connectionService.RejectConnectionRequest(context.Background(), requestID, toUID)
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid status. Must be 'accepted' or 'rejected'",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to %s connection request", updateRequest.Status),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": fmt.Sprintf("Connection request %s successfully", updateRequest.Status),
+	})
+}
+
+func (h *UserConnectionHandler) CancelSentRequest(c *fiber.Ctx) error {
+	uid, err := validateToken(strings.TrimPrefix(c.Get("Authorization"), "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	toUID := c.Params("toUid")
+	if toUID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Target user ID is required",
+		})
+	}
+
+	err = h.connectionService.CancelSentRequest(context.Background(), uid, toUID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to cancel connection request",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Connection request cancelled successfully",
 	})
 }

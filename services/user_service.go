@@ -4,17 +4,28 @@ import (
 	"context"
 	"errors"
 
+	"cloud.google.com/go/firestore"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/api/iterator"
 )
 
+type UserService struct {
+	firestoreClient *firestore.Client
+}
+
+func NewUserService(client *firestore.Client) *UserService {
+	return &UserService{
+		firestoreClient: client,
+	}
+}
+
 // GetUserByEmail fetches user data by their email and maps it to models.User
-func GetUserByEmail(email string) (*models.User, error) {
+func (s *UserService) GetUserByEmail(email string) (*models.User, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find a user document with the given email
-	query := FirestoreClient.Collection("users").Where("email", "==", email).Limit(1).Documents(ctx)
+	query := s.firestoreClient.Collection("users").Where("email", "==", email).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	doc, err := query.Next()
@@ -32,11 +43,11 @@ func GetUserByEmail(email string) (*models.User, error) {
 }
 
 // GetUserByUsername fetches user data by their username and maps it to models.User
-func GetUserByUsername(username string) (*models.User, error) {
+func (s *UserService) GetUserByUsername(username string) (*models.User, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find a user document with the given username
-	query := FirestoreClient.Collection("users").Where("username", "==", username).Limit(1).Documents(ctx)
+	query := s.firestoreClient.Collection("users").Where("username", "==", username).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	doc, err := query.Next()
@@ -54,11 +65,11 @@ func GetUserByUsername(username string) (*models.User, error) {
 }
 
 // GetUserRole retrieves the roles of a user by their UID from the "users" collection in Firestore.
-func GetUserRole(uid string) ([]string, error) {
+func (s *UserService) GetUserRole(uid string) ([]string, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find a user document with the given UID
-	query := FirestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
+	query := s.firestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	doc, err := query.Next()
@@ -95,11 +106,11 @@ func GetUserRole(uid string) ([]string, error) {
 }
 
 // GetUsernameByUID fetches the username of a user by their UID
-func GetUsernameByUID(uid string) (string, error) {
+func (s *UserService) GetUsernameByUID(uid string) (string, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find a user document with the given UID
-	query := FirestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
+	query := s.firestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	// Get the next document matching the query
@@ -128,11 +139,11 @@ func GetUsernameByUID(uid string) (string, error) {
 }
 
 // GetUserByUID fetches user data by their UID
-func GetUserByUID(uid string) (map[string]interface{}, error) {
+func (s *UserService) GetUserByUID(uid string) (map[string]interface{}, error) {
 	ctx := context.Background()
 
 	// Query the Firestore collection to find a user document with the given UID
-	query := FirestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
+	query := s.firestoreClient.Collection("users").Where("uid", "==", uid).Limit(1).Documents(ctx)
 	defer query.Stop()
 
 	// Get the next document matching the query

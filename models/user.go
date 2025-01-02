@@ -40,6 +40,7 @@ type UserConnections struct {
 	UID             string                       `json:"uid" bson:"uid"`
 	Connections     map[string]Connection        `json:"connections" bson:"connections"`
 	PendingRequests map[string]ConnectionRequest `json:"pending_requests" bson:"pending_requests"`
+	SentRequests    map[string]SentRequest       `json:"sent_requests" bson:"sent_requests"`
 }
 
 type Connection struct {
@@ -57,6 +58,14 @@ type ConnectionRequest struct {
 	SentAt   time.Time `json:"sent_at" bson:"sent_at"`
 	Message  string    `json:"message" bson:"message"`
 	Status   string    `json:"status" bson:"status"` // pending, accepted, rejected
+}
+
+type SentRequest struct {
+	ToUID    string    `json:"to_uid" bson:"to_uid"`
+	SentAt   time.Time `json:"sent_at" bson:"sent_at"`
+	Message  string    `json:"message" bson:"message"`
+	Status   string    `json:"status" bson:"status"` // pending, accepted, rejected
+	Accepted time.Time `json:"accepted" bson:"accepted"`
 }
 
 type UserAddress struct {

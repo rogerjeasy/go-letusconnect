@@ -13,8 +13,19 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type FAQHandler struct {
+	FAQService  *services.FAQService
+	UserService *services.UserService
+}
+
+func NewFAQHandler(faqService *services.FAQService) *FAQHandler {
+	return &FAQHandler{
+		FAQService: faqService,
+	}
+}
+
 // CreateFAQ handles the creation of a new FAQ entry
-func CreateFAQ(c *fiber.Ctx) error {
+func (f *FAQHandler) CreateFAQ(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -30,16 +41,23 @@ func CreateFAQ(c *fiber.Ctx) error {
 		})
 	}
 
-	// Fetch the user's username
-	username, err := services.GetUsernameByUID(uid)
+	userDetails, err := f.UserService.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
 		})
 	}
 
+	// Extract username string from the map
+	usernameStr, ok := userDetails["username"].(string)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Invalid username format",
+		})
+	}
+
 	// Fetch the user's role list
-	roles, err := services.GetUserRole(uid)
+	roles, err := f.UserService.GetUserRole(uid)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Failed to fetch user roles",
@@ -72,7 +90,7 @@ func CreateFAQ(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Map request data to FAQ model
-	newFAQ := mappers.FrontendToFAQ(requestData, username, uid)
+	newFAQ := mappers.FrontendToFAQ(requestData, usernameStr, uid)
 
 	// Save to Firestore
 	docRef, _, err := services.FirestoreClient.Collection("faqs").Add(ctx, mappers.FAQToFirestore(newFAQ))
@@ -92,7 +110,7 @@ func CreateFAQ(c *fiber.Ctx) error {
 }
 
 // GetAllFAQs retrieves all FAQs
-func GetAllFAQs(c *fiber.Ctx) error {
+func (f *FAQHandler) GetAllFAQs(c *fiber.Ctx) error {
 	ctx := context.Background()
 	iter := services.FirestoreClient.Collection("faqs").Documents(ctx)
 	defer iter.Stop()
@@ -118,7 +136,7 @@ func GetAllFAQs(c *fiber.Ctx) error {
 }
 
 // UpdateFAQ updates an existing FAQ (admin only)
-func UpdateFAQ(c *fiber.Ctx) error {
+func (f *FAQHandler) UpdateFAQ(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -136,7 +154,7 @@ func UpdateFAQ(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's username
-	username, err := services.GetUsernameByUID(uid)
+	username, err := f.UserService.GetUsernameByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -144,7 +162,7 @@ func UpdateFAQ(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's roles
-	roles, err := services.GetUserRole(uid)
+	roles, err := f.UserService.GetUserRole(uid)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Failed to fetch user roles",
@@ -205,7 +223,7 @@ func UpdateFAQ(c *fiber.Ctx) error {
 }
 
 // DeleteFAQ deletes an existing FAQ (admin only)
-func DeleteFAQ(c *fiber.Ctx) error {
+func (f *FAQHandler) DeleteFAQ(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -223,7 +241,7 @@ func DeleteFAQ(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's roles
-	roles, err := services.GetUserRole(uid)
+	roles, err := f.UserService.GetUserRole(uid)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Failed to fetch user roles",

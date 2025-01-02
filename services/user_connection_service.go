@@ -16,11 +16,13 @@ import (
 
 type UserConnectionService struct {
 	firestoreClient *firestore.Client
+	UserService     *UserService
 }
 
-func NewUserConnectionService(client *firestore.Client) *UserConnectionService {
+func NewUserConnectionService(client *firestore.Client, userService *UserService) *UserConnectionService {
 	return &UserConnectionService{
 		firestoreClient: client,
+		UserService:     userService,
 	}
 }
 
@@ -30,6 +32,7 @@ func (s *UserConnectionService) CreateUserConnections(ctx context.Context, uid s
 		UID:             uid,
 		Connections:     make(map[string]models.Connection),
 		PendingRequests: make(map[string]models.ConnectionRequest),
+		SentRequests:    make(map[string]models.SentRequest),
 	}
 
 	_, err := s.firestoreClient.Collection("user_connections").Doc(connections.ID).Set(ctx, mappers.MapConnectionsGoToFirestore(connections))
@@ -88,87 +91,47 @@ func (s *UserConnectionService) GetUserConnections(ctx context.Context, uid stri
 }
 
 func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromUID, toUID, message string) error {
-
-	fromUsername, err := GetUsernameByUID(fromUID)
-	if err != nil {
-		return fmt.Errorf("failed to get username: %v", err)
-	}
-	request := models.ConnectionRequest{
-		FromUID:  fromUID,
-		FromName: fromUsername,
-		ToUID:    toUID,
-		Message:  message,
-		SentAt:   time.Now(),
-		Status:   "pending",
-	}
-
-	targetConnections, err := s.GetUserConnections(ctx, toUID)
-	if err != nil {
-		targetConnections, err = s.CreateUserConnections(ctx, toUID)
-		if err != nil {
-			return err
-		}
-	}
-
-	targetConnections.PendingRequests[fromUID] = request
-
-	_, err = s.firestoreClient.Collection("user_connections").Doc(targetConnections.ID).Set(ctx,
-		mappers.MapConnectionsGoToFirestore(*targetConnections))
-	if err != nil {
-		return err
-	}
-
-	if err := SendConnectionRequestNotification(ctx, fromUID, fromUsername, message, toUID); err != nil {
-		fmt.Printf("Failed to send connection request notification: %v\n", err)
-	}
-	return nil
-}
-
-func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fromUID, toUID string) error {
 	// Start a transaction
 	err := s.firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		// Get both users' connections
+		fromUsername, err := s.UserService.GetUsernameByUID(fromUID)
+		if err != nil {
+			return fmt.Errorf("failed to get username: %v", err)
+		}
+
+		// Create pending request for recipient
+		request := models.ConnectionRequest{
+			FromUID:  fromUID,
+			FromName: fromUsername,
+			ToUID:    toUID,
+			Message:  message,
+			SentAt:   time.Now(),
+			Status:   "pending",
+		}
+
+		// Create sent request for sender
+		sentRequest := models.SentRequest{
+			ToUID:   toUID,
+			SentAt:  request.SentAt,
+			Message: message,
+			Status:  "pending",
+		}
+
+		// Get or create connections for both users
 		fromConnections, err := s.GetUserConnections(ctx, fromUID)
 		if err != nil {
 			return err
 		}
+
 		toConnections, err := s.GetUserConnections(ctx, toUID)
 		if err != nil {
 			return err
 		}
 
-		uidUsername, err := GetUsernameByUID(toUID)
-		if err != nil {
-			return fmt.Errorf("failed to get username: %v", err)
-		}
+		// Update both users' records
+		toConnections.PendingRequests[fromUID] = request
+		fromConnections.SentRequests[toUID] = sentRequest
 
-		// Create connection objects
-		now := time.Now()
-		connection1 := models.Connection{
-			TargetUID:  toUID,
-			TargetName: uidUsername,
-			SentAt:     now,
-			AcceptedAt: now,
-			Status:     "active",
-		}
-		fromUsername, err := GetUsernameByUID(fromUID)
-		if err != nil {
-			return fmt.Errorf("failed to get username: %v", err)
-		}
-		connection2 := models.Connection{
-			TargetUID:  fromUID,
-			TargetName: fromUsername,
-			SentAt:     now,
-			AcceptedAt: now,
-			Status:     "active",
-		}
-
-		// Update connections and remove request
-		fromConnections.Connections[toUID] = connection1
-		toConnections.Connections[fromUID] = connection2
-		delete(toConnections.PendingRequests, fromUID)
-
-		// Update both documents in transaction
+		// Save both updates in transaction
 		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(fromConnections.ID),
 			mappers.MapConnectionsGoToFirestore(*fromConnections))
 		if err != nil {
@@ -181,9 +144,8 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 			return err
 		}
 
-		// Send notification to the user who sent the request
-		if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, fromUID); err != nil {
-			fmt.Printf("Failed to send connection accepted notification: %v\n", err)
+		if err := SendConnectionRequestNotification(ctx, fromUID, fromUsername, message, toUID); err != nil {
+			fmt.Printf("Failed to send connection request notification: %v\n", err)
 		}
 
 		return nil
@@ -192,17 +154,113 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 	return err
 }
 
+func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fromUID, toUID string) error {
+	return s.firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		fromConnections, err := s.GetUserConnections(ctx, fromUID)
+		if err != nil {
+			return err
+		}
+		toConnections, err := s.GetUserConnections(ctx, toUID)
+		if err != nil {
+			return err
+		}
+
+		uidUsername, err := s.UserService.GetUsernameByUID(toUID)
+		if err != nil {
+			return fmt.Errorf("failed to get username: %v", err)
+		}
+
+		now := time.Now()
+		connection1 := models.Connection{
+			TargetUID:  toUID,
+			TargetName: uidUsername,
+			SentAt:     now,
+			AcceptedAt: now,
+			Status:     "active",
+		}
+
+		fromUsername, err := s.UserService.GetUsernameByUID(fromUID)
+		if err != nil {
+			return fmt.Errorf("failed to get username: %v", err)
+		}
+
+		connection2 := models.Connection{
+			TargetUID:  fromUID,
+			TargetName: fromUsername,
+			SentAt:     now,
+			AcceptedAt: now,
+			Status:     "active",
+		}
+
+		// Update connections and manage requests
+		fromConnections.Connections[toUID] = connection1
+		toConnections.Connections[fromUID] = connection2
+
+		// Update sent request status
+		if sentReq, exists := fromConnections.SentRequests[toUID]; exists {
+			sentReq.Status = "accepted"
+			sentReq.Accepted = now
+			fromConnections.SentRequests[toUID] = sentReq
+		}
+
+		delete(toConnections.PendingRequests, fromUID)
+
+		// Save updates
+		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(fromConnections.ID),
+			mappers.MapConnectionsGoToFirestore(*fromConnections))
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(toConnections.ID),
+			mappers.MapConnectionsGoToFirestore(*toConnections))
+		if err != nil {
+			return err
+		}
+
+		if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, fromUID); err != nil {
+			fmt.Printf("Failed to send connection accepted notification: %v\n", err)
+		}
+
+		return nil
+	})
+}
+
 func (s *UserConnectionService) RejectConnectionRequest(ctx context.Context, fromUID, toUID string) error {
-	targetConnections, err := s.GetUserConnections(ctx, toUID)
-	if err != nil {
-		return err
-	}
+	return s.firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		fromConnections, err := s.GetUserConnections(ctx, fromUID)
+		if err != nil {
+			return err
+		}
 
-	delete(targetConnections.PendingRequests, fromUID)
+		toConnections, err := s.GetUserConnections(ctx, toUID)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.firestoreClient.Collection("user_connections").Doc(targetConnections.ID).Set(ctx,
-		mappers.MapConnectionsGoToFirestore(*targetConnections))
-	return err
+		// Update sent request status
+		if sentReq, exists := fromConnections.SentRequests[toUID]; exists {
+			sentReq.Status = "rejected"
+			fromConnections.SentRequests[toUID] = sentReq
+		}
+
+		delete(toConnections.PendingRequests, fromUID)
+
+		// Save updates
+		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(fromConnections.ID),
+			mappers.MapConnectionsGoToFirestore(*fromConnections))
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(toConnections.ID),
+			mappers.MapConnectionsGoToFirestore(*toConnections))
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (s *UserConnectionService) RemoveConnection(ctx context.Context, uid1, uid2 string) error {
@@ -238,4 +296,40 @@ func (s *UserConnectionService) RemoveConnection(ctx context.Context, uid1, uid2
 	})
 
 	return err
+}
+
+func (s *UserConnectionService) CancelSentRequest(ctx context.Context, fromUID, toUID string) error {
+	return s.firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		// Get both users' connections
+		fromConnections, err := s.GetUserConnections(ctx, fromUID)
+		if err != nil {
+			return err
+		}
+
+		toConnections, err := s.GetUserConnections(ctx, toUID)
+		if err != nil {
+			return err
+		}
+
+		// Remove the sent request from the sender
+		delete(fromConnections.SentRequests, toUID)
+
+		// Remove the pending request from the recipient
+		delete(toConnections.PendingRequests, fromUID)
+
+		// Save updates for both users
+		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(fromConnections.ID),
+			mappers.MapConnectionsGoToFirestore(*fromConnections))
+		if err != nil {
+			return err
+		}
+
+		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(toConnections.ID),
+			mappers.MapConnectionsGoToFirestore(*toConnections))
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

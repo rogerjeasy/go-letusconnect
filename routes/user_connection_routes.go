@@ -6,21 +6,24 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-func SetupUserConnectionRoutes(app *fiber.App, connectionService *services.UserConnectionService) {
-	api := app.Group("/api")
+func setupUserConnectionRoutes(api fiber.Router, connectionService *services.UserConnectionService) {
 	connectionHandler := handlers.NewUserConnectionHandler(connectionService)
 
+	// Main connections resource
 	connections := api.Group("/connections")
 
-	// Get user's connections and pending requests
+	// Core connection endpoints
 	connections.Get("/", connectionHandler.GetUserConnections)
 	connections.Get("/:uid", connectionHandler.GetUserConnectionsByUID)
-
-	// Connection requests
-	connections.Post("/requests", connectionHandler.SendConnectionRequest)
-	connections.Put("/requests/:fromUid/accept", connectionHandler.AcceptConnectionRequest)
-	connections.Put("/requests/:fromUid/reject", connectionHandler.RejectConnectionRequest)
-
-	// Remove existing connection
 	connections.Delete("/:uid", connectionHandler.RemoveConnection)
+
+	// Connection requests as a sub-resource
+	requests := connections.Group("/requests")
+	requests.Get("/:uid", connectionHandler.GetConnectionRequests)
+	requests.Post("/", connectionHandler.SendConnectionRequest)
+
+	// Request actions (keeping separate accept/reject endpoints)
+	requests.Put("/:fromUid/accept", connectionHandler.AcceptConnectionRequest)
+	requests.Put("/:fromUid/reject", connectionHandler.RejectConnectionRequest)
+	requests.Delete("/:toUid", connectionHandler.CancelSentRequest)
 }

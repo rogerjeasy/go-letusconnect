@@ -15,8 +15,20 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type ProjectHandlerSetup struct {
+	// projectService *services.ProjectService
+	userService *services.UserService
+}
+
+func NewProjectHandlerSetup(projectCoreService *services.ProjectCoreService, userService *services.UserService) *ProjectHandlerSetup {
+	return &ProjectHandlerSetup{
+		// projectService: projectService,
+		userService: userService,
+	}
+}
+
 // CreateProject handles the creation of a new project
-func CreateProject(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) CreateProject(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -34,7 +46,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Fetch the user's details (username)
-	user, err := services.GetUserByUID(uid)
+	user, err := h.userService.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch user details",
@@ -133,11 +145,11 @@ func CreateProject(c *fiber.Ctx) error {
 	c.Locals("id", docRef.ID)
 	c.Locals("message", "Project created successfully")
 
-	return GetProject(c)
+	return h.GetProject(c)
 }
 
 // UpdateProject handles updating project details
-func UpdateProject(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) UpdateProject(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -238,11 +250,11 @@ func UpdateProject(c *fiber.Ctx) error {
 	c.Locals("message", "Project updated successfully")
 	c.Locals("token", token)
 
-	return GetProject(c)
+	return h.GetProject(c)
 }
 
 // GetProject handles fetching a project by its ID
-func GetProject(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) GetProject(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -300,7 +312,7 @@ func GetProject(c *fiber.Ctx) error {
 }
 
 // DeleteProject handles deleting a project by its ID
-func DeleteProject(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) DeleteProject(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -370,7 +382,7 @@ func DeleteProject(c *fiber.Ctx) error {
 }
 
 // GetAllPublicProjects fetches all public projects
-func GetAllPublicProjects(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) GetAllPublicProjects(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Query Firestore for projects with collaboration_type == "public"
@@ -395,7 +407,7 @@ func GetAllPublicProjects(c *fiber.Ctx) error {
 }
 
 // GetOwnerProjects fetches all projects where the user is the owner
-func GetOwnerProjects(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) GetOwnerProjects(c *fiber.Ctx) error {
 
 	// Extract the Authorization token
 	token := c.Get("Authorization")
@@ -438,7 +450,7 @@ func GetOwnerProjects(c *fiber.Ctx) error {
 }
 
 // GetParticipationProjects fetches all projects where the user is a participant
-func GetParticipationProjects(c *fiber.Ctx) error {
+func (h *ProjectHandlerSetup) GetParticipationProjects(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {

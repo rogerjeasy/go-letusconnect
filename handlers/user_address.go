@@ -14,8 +14,18 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type AddressHandler struct {
+	AddressService *services.AddressService
+}
+
+func NewAddressHandler(addressService *services.AddressService) *AddressHandler {
+	return &AddressHandler{
+		AddressService: addressService,
+	}
+}
+
 // CRUD operations for user addresses
-func CreateUserAddress(c *fiber.Ctx) error {
+func (a *AddressHandler) CreateUserAddress(c *fiber.Ctx) error {
 	// Extract Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -76,7 +86,7 @@ func CreateUserAddress(c *fiber.Ctx) error {
 	})
 }
 
-func UpdateUserAddress(c *fiber.Ctx) error {
+func (a *AddressHandler) UpdateUserAddress(c *fiber.Ctx) error {
 	// Extract Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -158,7 +168,7 @@ func UpdateUserAddress(c *fiber.Ctx) error {
 	})
 }
 
-func GetUserAddress(c *fiber.Ctx) error {
+func (a *AddressHandler) GetUserAddress(c *fiber.Ctx) error {
 	// Extract Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
@@ -176,7 +186,7 @@ func GetUserAddress(c *fiber.Ctx) error {
 	}
 
 	// Get addresses using the service function
-	addresses, err := services.GetUserAddresses(uid)
+	addresses, err := a.AddressService.GetUserAddresses(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch addresses",
@@ -203,7 +213,7 @@ func GetUserAddress(c *fiber.Ctx) error {
 	})
 }
 
-func DeleteUserAddress(c *fiber.Ctx) error {
+func (a *AddressHandler) DeleteUserAddress(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

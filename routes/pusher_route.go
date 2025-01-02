@@ -10,9 +10,10 @@ import (
 )
 
 // SetupPusherRoutes sets up the routes for Pusher-related actions
-func SetupPusherRoutes(app *fiber.App) {
-	app.Post("/api/pusher/auth", handlers.PusherAuth)
-	app.Post("/api/trigger", func(c *fiber.Ctx) error {
+func SetupPusherRoutes(router fiber.Router) {
+	// Since we're already in a router group, we don't need /api prefix
+	router.Post("/pusher/auth", handlers.PusherAuth)
+	router.Post("/trigger", func(c *fiber.Ctx) error {
 		token := c.Get("Authorization")
 		if token == "" {
 			return c.Status(401).JSON(fiber.Map{"error": "Authorization token is required"})
@@ -48,5 +49,4 @@ func SetupPusherRoutes(app *fiber.App) {
 
 		return c.JSON(fiber.Map{"success": "Event triggered successfully"})
 	})
-
 }

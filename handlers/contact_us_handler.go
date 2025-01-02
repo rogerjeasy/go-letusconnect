@@ -13,8 +13,18 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type ContactUsHandler struct {
+	contactUsService *services.ContactUsService
+}
+
+func NewContactUsHandler(contactUsService *services.ContactUsService) *ContactUsHandler {
+	return &ContactUsHandler{
+		contactUsService: contactUsService,
+	}
+}
+
 // CreateContact handles creating a new contact form submission
-func CreateContact(c *fiber.Ctx) error {
+func (h *ContactUsHandler) CreateContact(c *fiber.Ctx) error {
 	var requestData map[string]interface{}
 
 	// Parse the request body
@@ -53,7 +63,7 @@ func CreateContact(c *fiber.Ctx) error {
 }
 
 // GetContact retrieves a contact form submission by ID
-func GetContactByID(c *fiber.Ctx) error {
+func (h *ContactUsHandler) GetContactByID(c *fiber.Ctx) error {
 	contactID := c.Params("id")
 	if contactID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -98,7 +108,7 @@ func GetContactByID(c *fiber.Ctx) error {
 }
 
 // GetAllContacts retrieves all contact form submissions
-func GetAllContacts(c *fiber.Ctx) error {
+func (h *ContactUsHandler) GetAllContacts(c *fiber.Ctx) error {
 
 	token := c.Get("Authorization")
 	if token == "" {
@@ -142,7 +152,7 @@ func GetAllContacts(c *fiber.Ctx) error {
 }
 
 // UpdateContactStatus updates the status of a contact form submission (e.g., to "read" or "replied")
-func UpdateContactStatus(c *fiber.Ctx) error {
+func (h *ContactUsHandler) UpdateContactStatus(c *fiber.Ctx) error {
 	contactID := c.Params("id")
 	if contactID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

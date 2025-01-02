@@ -1,36 +1,48 @@
 package mappers
 
 import (
+	"time"
+
 	"github.com/rogerjeasy/go-letusconnect/models"
 )
 
-// MapConnectionsFrontendToGo maps frontend to Go struct
 func MapConnectionsFrontendToGo(data map[string]interface{}) models.UserConnections {
 	return models.UserConnections{
 		ID:              getStringValue(data, "id"),
 		UID:             getStringValue(data, "uid"),
 		Connections:     mapConnectionsMapFrontendToGo(data["connections"]),
 		PendingRequests: mapRequestsMapFrontendToGo(data["pendingRequests"]),
+		SentRequests:    mapSentRequestsMapFrontendToGo(data["sentRequests"]),
 	}
 }
 
-// MapConnectionsGoToFirestore maps Go struct to Firestore
 func MapConnectionsGoToFirestore(conn models.UserConnections) map[string]interface{} {
 	return map[string]interface{}{
 		"id":               conn.ID,
 		"uid":              conn.UID,
 		"connections":      mapConnectionsMapGoToFirestore(conn.Connections),
 		"pending_requests": mapRequestsMapGoToFirestore(conn.PendingRequests),
+		"sent_requests":    mapSentRequestsMapGoToFirestore(conn.SentRequests),
 	}
 }
 
-// MapConnectionsFirestoreToFrontend maps Firestore to frontend
 func MapConnectionsFirestoreToFrontend(data map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"id":              getStringValue(data, "id"),
 		"uid":             getStringValue(data, "uid"),
 		"connections":     mapConnectionsMapFirestoreToFrontend(data["connections"]),
 		"pendingRequests": mapRequestsMapFirestoreToFrontend(data["pending_requests"]),
+		"sentRequests":    mapSentRequestsMapFirestoreToFrontend(data["sent_requests"]),
+	}
+}
+
+func MapConnectionsFirestoreToGo(data map[string]interface{}) models.UserConnections {
+	return models.UserConnections{
+		ID:              getStringValue(data, "id"),
+		UID:             getStringValue(data, "uid"),
+		Connections:     mapConnectionsMapFirestoreToGo(data["connections"]),
+		PendingRequests: mapRequestsMapFirestoreToGo(data["pending_requests"]),
+		SentRequests:    mapSentRequestsMapFirestoreToGo(data["sent_requests"]),
 	}
 }
 
@@ -42,17 +54,59 @@ func MapConnectionRequestFrontendToGo(data map[string]interface{}) models.Connec
 	}
 }
 
-// MapConnectionsFirestoreToGo maps Firestore to Go struct
-func MapConnectionsFirestoreToGo(data map[string]interface{}) models.UserConnections {
-	return models.UserConnections{
-		ID:              getStringValue(data, "id"),
-		UID:             getStringValue(data, "uid"),
-		Connections:     mapConnectionsMapFirestoreToGo(data["connections"]),
-		PendingRequests: mapRequestsMapFirestoreToGo(data["pending_requests"]),
+func MapConnectionsGoToFrontend(conn models.UserConnections) map[string]interface{} {
+	return map[string]interface{}{
+		"id":              conn.ID,
+		"uid":             conn.UID,
+		"connections":     mapConnectionsMapGoToFrontend(conn.Connections),
+		"pendingRequests": mapRequestsMapGoToFrontend(conn.PendingRequests),
+		"sentRequests":    mapSentRequestsMapGoToFrontend(conn.SentRequests),
 	}
 }
 
-// Helper functions for mapping nested maps
+func mapConnectionsMapGoToFrontend(conns map[string]models.Connection) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range conns {
+		result[k] = map[string]interface{}{
+			"targetUid":  v.TargetUID,
+			"targetName": v.TargetName,
+			"sentAt":     v.SentAt,
+			"acceptedAt": v.AcceptedAt,
+			"status":     v.Status,
+		}
+	}
+	return result
+}
+
+func mapRequestsMapGoToFrontend(reqs map[string]models.ConnectionRequest) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range reqs {
+		result[k] = map[string]interface{}{
+			"fromUid":  v.FromUID,
+			"fromName": v.FromName,
+			"toUid":    v.ToUID,
+			"sentAt":   v.SentAt,
+			"message":  v.Message,
+			"status":   v.Status,
+		}
+	}
+	return result
+}
+
+func mapSentRequestsMapGoToFrontend(reqs map[string]models.SentRequest) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range reqs {
+		result[k] = map[string]interface{}{
+			"toUid":    v.ToUID,
+			"sentAt":   v.SentAt,
+			"message":  v.Message,
+			"status":   v.Status,
+			"accepted": v.Accepted,
+		}
+	}
+	return result
+}
+
 func mapConnectionsMapFrontendToGo(data interface{}) map[string]models.Connection {
 	result := make(map[string]models.Connection)
 	if conns, ok := data.(map[string]interface{}); ok {
@@ -164,8 +218,8 @@ func mapConnectionsMapFirestoreToGo(data interface{}) map[string]models.Connecti
 				result[k] = models.Connection{
 					TargetUID:  getStringValue(connMap, "target_uid"),
 					TargetName: getStringValue(connMap, "target_name"),
-					SentAt:     getTimeValue(connMap, "sent_at"),
-					AcceptedAt: getTimeValue(connMap, "accepted_at"),
+					SentAt:     connMap["sent_at"].(time.Time),
+					AcceptedAt: connMap["accepted_at"].(time.Time),
 					Status:     getStringValue(connMap, "status"),
 				}
 			}
@@ -183,9 +237,77 @@ func mapRequestsMapFirestoreToGo(data interface{}) map[string]models.ConnectionR
 					FromUID:  getStringValue(reqMap, "from_uid"),
 					FromName: getStringValue(reqMap, "from_name"),
 					ToUID:    getStringValue(reqMap, "to_uid"),
+					SentAt:   reqMap["sent_at"].(time.Time),
+					Message:  getStringValue(reqMap, "message"),
+					Status:   getStringValue(reqMap, "status"),
+				}
+			}
+		}
+	}
+	return result
+}
+
+func mapSentRequestsMapFrontendToGo(data interface{}) map[string]models.SentRequest {
+	result := make(map[string]models.SentRequest)
+	if reqs, ok := data.(map[string]interface{}); ok {
+		for k, v := range reqs {
+			if reqMap, ok := v.(map[string]interface{}); ok {
+				result[k] = models.SentRequest{
+					ToUID:    getStringValue(reqMap, "toUid"),
+					SentAt:   getTimeValue(reqMap, "sentAt"),
+					Message:  getStringValue(reqMap, "message"),
+					Status:   getStringValue(reqMap, "status"),
+					Accepted: getTimeValue(reqMap, "accepted"),
+				}
+			}
+		}
+	}
+	return result
+}
+
+func mapSentRequestsMapGoToFirestore(reqs map[string]models.SentRequest) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range reqs {
+		result[k] = map[string]interface{}{
+			"to_uid":   v.ToUID,
+			"sent_at":  v.SentAt,
+			"message":  v.Message,
+			"status":   v.Status,
+			"accepted": v.Accepted,
+		}
+	}
+	return result
+}
+
+func mapSentRequestsMapFirestoreToFrontend(data interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	if reqs, ok := data.(map[string]interface{}); ok {
+		for k, v := range reqs {
+			if reqMap, ok := v.(map[string]interface{}); ok {
+				result[k] = map[string]interface{}{
+					"toUid":    getStringValue(reqMap, "to_uid"),
+					"sentAt":   getTimeValue(reqMap, "sent_at"),
+					"message":  getStringValue(reqMap, "message"),
+					"status":   getStringValue(reqMap, "status"),
+					"accepted": getTimeValue(reqMap, "accepted"),
+				}
+			}
+		}
+	}
+	return result
+}
+
+func mapSentRequestsMapFirestoreToGo(data interface{}) map[string]models.SentRequest {
+	result := make(map[string]models.SentRequest)
+	if reqs, ok := data.(map[string]interface{}); ok {
+		for k, v := range reqs {
+			if reqMap, ok := v.(map[string]interface{}); ok {
+				result[k] = models.SentRequest{
+					ToUID:    getStringValue(reqMap, "to_uid"),
 					SentAt:   getTimeValue(reqMap, "sent_at"),
 					Message:  getStringValue(reqMap, "message"),
 					Status:   getStringValue(reqMap, "status"),
+					Accepted: getTimeValue(reqMap, "accepted"),
 				}
 			}
 		}
