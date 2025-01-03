@@ -304,10 +304,10 @@ func mapSentRequestsMapFirestoreToGo(data interface{}) map[string]models.SentReq
 			if reqMap, ok := v.(map[string]interface{}); ok {
 				result[k] = models.SentRequest{
 					ToUID:    getStringValue(reqMap, "to_uid"),
-					SentAt:   getTimeValue(reqMap, "sent_at"),
+					SentAt:   reqMap["sent_at"].(time.Time),
 					Message:  getStringValue(reqMap, "message"),
 					Status:   getStringValue(reqMap, "status"),
-					Accepted: getTimeValue(reqMap, "accepted"),
+					Accepted: reqMap["accepted"].(time.Time),
 				}
 			}
 		}

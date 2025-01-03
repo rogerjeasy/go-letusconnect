@@ -167,7 +167,7 @@ func SendConnectionRequestNotification(ctx context.Context, fromUID, fromUsernam
 	return nil
 }
 
-func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUsername, toUID string) error {
+func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUsername, toUsername, toUID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -184,8 +184,8 @@ func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUserna
 		ActorName:       fromUsername,
 		ActorType:       "user",
 		Type:            models.NotificationType("connection_accepted"),
-		Title:           fromUsername + " accepted your connection request",
-		Content:         fromUsername + " has accepted your connection request",
+		Title:           toUsername + " accepted your connection request",
+		Content:         toUsername + " has accepted your connection request",
 		Category:        "connection",
 		Priority:        "normal",
 		Status:          "unread",

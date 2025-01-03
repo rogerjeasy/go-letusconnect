@@ -41,10 +41,8 @@ func (h *UserConnectionHandler) GetUserConnections(c *fiber.Ctx) error {
 			"data":    nil,
 		})
 	}
-
-	return c.JSON(mappers.MapConnectionsFirestoreToFrontend(
-		mappers.MapConnectionsGoToFirestore(*connections),
-	))
+	frontendData := mappers.MapConnectionsGoToFrontend(*connections)
+	return c.JSON(frontendData)
 }
 
 func (h *UserConnectionHandler) GetUserConnectionsByUID(c *fiber.Ctx) error {
@@ -68,9 +66,8 @@ func (h *UserConnectionHandler) GetUserConnectionsByUID(c *fiber.Ctx) error {
 			"data":    nil,
 		})
 	}
-	frontend := mappers.MapConnectionsFirestoreToFrontend(
-		mappers.MapConnectionsGoToFirestore(*connections),
-	)
+
+	frontend := mappers.MapConnectionsGoToFrontend(*connections)
 	connectionsMap := frontend["connections"].(map[string]interface{})
 	pendingRequestMap := frontend["pendingRequests"].(map[string]interface{})
 	return c.JSON(fiber.Map{

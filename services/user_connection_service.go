@@ -174,7 +174,7 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 		connection1 := models.Connection{
 			TargetUID:  toUID,
 			TargetName: uidUsername,
-			SentAt:     now,
+			SentAt:     fromConnections.SentRequests[toUID].SentAt,
 			AcceptedAt: now,
 			Status:     "active",
 		}
@@ -187,7 +187,7 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 		connection2 := models.Connection{
 			TargetUID:  fromUID,
 			TargetName: fromUsername,
-			SentAt:     now,
+			SentAt:     toConnections.PendingRequests[fromUID].SentAt,
 			AcceptedAt: now,
 			Status:     "active",
 		}
@@ -204,6 +204,7 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 		}
 
 		delete(toConnections.PendingRequests, fromUID)
+		delete(fromConnections.SentRequests, toUID)
 
 		// Save updates
 		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(fromConnections.ID),
@@ -218,7 +219,7 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 			return err
 		}
 
-		if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, fromUID); err != nil {
+		if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, uidUsername, fromUID); err != nil {
 			fmt.Printf("Failed to send connection accepted notification: %v\n", err)
 		}
 
