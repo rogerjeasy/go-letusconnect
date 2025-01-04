@@ -7,9 +7,9 @@ import (
 )
 
 // group chat routes
-func setupGroupChatRoutes(api fiber.Router, groupChatService *services.GroupChatService) {
+func setupGroupChatRoutes(api fiber.Router, groupChatService *services.GroupChatService, userService *services.UserService) {
 	groupChats := api.Group("/group-chats")
-	handler := handlers.NewGroupChatHandler(groupChatService)
+	handler := handlers.NewGroupChatHandler(groupChatService, userService)
 
 	// Group Chat Routes
 	groupChats.Post("/", handler.CreateGroupChatF)

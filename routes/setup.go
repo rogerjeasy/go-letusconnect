@@ -20,7 +20,7 @@ func SetupAllRoutes(app *fiber.App, services *services.ServiceContainer) {
 	setupProjectCoreRoutes(api, services.ProjectCoreService, services.UserService)
 	setupProjectCollab(api, services.ProjectService)
 	setupDirectMessageRoutes(api, services.MessageService, services.UserService)
-	setupGroupChatRoutes(api, services.GroupChatService)
+	setupGroupChatRoutes(api, services.GroupChatService, services.UserService)
 	setupUserConnectionRoutes(api, services.ConnectionService)
 	setupAddressRoutes(api, services.AddressService)
 	setupNewsletterRoutes(api, services.NewsletterService)

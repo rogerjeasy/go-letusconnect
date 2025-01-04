@@ -18,9 +18,10 @@ type GroupChatHandler struct {
 	UserService      *services.UserService
 }
 
-func NewGroupChatHandler(groupChatService *services.GroupChatService) *GroupChatHandler {
+func NewGroupChatHandler(groupChatService *services.GroupChatService, userService *services.UserService) *GroupChatHandler {
 	return &GroupChatHandler{
 		GroupChatService: groupChatService,
+		UserService:      userService,
 	}
 }
 
