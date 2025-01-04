@@ -216,7 +216,6 @@ func (h *NotificationHandler) ListNotifications(c *fiber.Ctx) error {
 	})
 }
 
-// MarkNotificationAsRead handles the HTTP request for marking a notification as read
 func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {

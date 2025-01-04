@@ -475,7 +475,6 @@ func SendGroupMessage(c *fiber.Ctx) error {
 // GetUnreadMessagesCount fetches the count of unread direct messages for the logged-in user.
 // If a senderId query parameter is provided, it counts unread messages only from that sender.
 func GetUnreadMessagesCount(c *fiber.Ctx) error {
-	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

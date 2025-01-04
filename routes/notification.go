@@ -20,5 +20,5 @@ func setupNotificationRoutes(api fiber.Router, notificationService *services.Not
 	notifications.Get("/:id", handler.GetNotification)
 	notifications.Put("/:id", handler.UpdateNotification)
 	notifications.Delete("/:id", handler.DeleteNotification)
-	notifications.Put("/:id/read", handler.MarkNotificationAsRead)
+	// notifications.Patch("/:id/read", handler.MarkNotificationAsRead)
 }
