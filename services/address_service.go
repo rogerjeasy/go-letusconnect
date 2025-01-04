@@ -21,32 +21,116 @@ func NewAddressService(client *firestore.Client) *AddressService {
 	}
 }
 
-// GetUserAddresses retrieves all addresses for a given user UID
+func (a *AddressService) CreateUserAddress(uid string) (models.UserAddress, error) {
+	if a.FirestoreClient == nil {
+		return models.UserAddress{}, errors.New("firestore client is not initialized")
+	}
+
+	// Initialize UserAddress with only UID
+	address := models.UserAddress{
+		UID: uid,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	backendAddress := mappers.MapUserAddressToBackend(address)
+
+	docRef, _, err := a.FirestoreClient.Collection("user_addresses").Add(ctx, backendAddress)
+	if err != nil {
+		return models.UserAddress{}, errors.New("failed to create address: " + err.Error())
+	}
+
+	backendAddress["id"] = docRef.ID
+
+	_, err = docRef.Set(ctx, backendAddress, firestore.MergeAll)
+	if err != nil {
+		return models.UserAddress{}, errors.New("failed to update address with ID: " + err.Error())
+	}
+
+	createdAddress := mappers.MapBackendToUserAddress(backendAddress)
+	return createdAddress, nil
+}
+
 func (a *AddressService) GetUserAddresses(uid string) ([]models.UserAddress, error) {
-	ctx := context.Background()
+	if a.FirestoreClient == nil {
+		return nil, errors.New("firestore client is not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Query Firestore for user addresses
-	docRef := a.FirestoreClient.Collection("user_addresses").Where("uid", "==", uid).Documents(ctx)
-	defer docRef.Stop()
+	iter := a.FirestoreClient.Collection("user_addresses").Where("uid", "==", uid).Documents(ctx)
+	defer iter.Stop()
 
 	var addresses []models.UserAddress
+	hasAddress := false
+
 	for {
-		doc, err := docRef.Next()
+		doc, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			return nil, errors.New("failed to fetch addresses")
+			return nil, errors.New("error iterating through addresses: " + err.Error())
 		}
-
-		// Get the raw address data
+		// Get the raw address data and ensure ID is included
 		backendAddress := doc.Data()
-		// Convert to frontend format
-		frontendAddress := mappers.MapBackendToUserAddress(backendAddress)
-		addresses = append(addresses, frontendAddress)
+		backendAddress["id"] = doc.Ref.ID
+		// Convert to UserAddress struct
+		address := mappers.MapBackendToUserAddress(backendAddress)
+		addresses = append(addresses, address)
+		hasAddress = true
+	}
+
+	// If no addresses found, create a new one
+	if !hasAddress {
+		newAddress, err := a.CreateUserAddress(uid)
+		if err != nil {
+			return nil, errors.New("failed to create initial address: " + err.Error())
+		}
+		addresses = append(addresses, newAddress)
 	}
 
 	return addresses, nil
+}
+
+func (a *AddressService) UpdateUserAddress(addressID string, uid string, updatedAddress models.UserAddress) (models.UserAddress, error) {
+	if a.FirestoreClient == nil {
+		return models.UserAddress{}, errors.New("firestore client is not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get document reference
+	docRef := a.FirestoreClient.Collection("user_addresses").Doc(addressID)
+
+	// Get current address
+	docSnapshot, err := docRef.Get(ctx)
+	if err != nil {
+		return models.UserAddress{}, errors.New("failed to fetch address: " + err.Error())
+	}
+
+	data := docSnapshot.Data()
+	if data["uid"] != uid {
+		return models.UserAddress{}, errors.New("unauthorized to update this address")
+	}
+
+	updatedAddress.UID = uid
+	updatedAddress.ID = addressID
+
+	// Convert to backend format
+	backendUpdates := mappers.MapUserAddressToBackend(updatedAddress)
+
+	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
+	if err != nil {
+		return models.UserAddress{}, errors.New("failed to update address: " + err.Error())
+	}
+
+	// Return the updated address
+	return updatedAddress, nil
 }
 
 func (a *AddressService) GetUserSchoolExperience(uid string) (*models.UserSchoolExperience, error) {

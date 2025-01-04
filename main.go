@@ -44,6 +44,9 @@ func main() {
 		ProjectService:      services.NewProjectService(services.FirestoreClient, userService),
 		MessageService:      services.NewMessageService(services.FirestoreClient),
 		GroupChatService:    services.NewGroupChatService(services.FirestoreClient),
+		NewsletterService:   services.NewNewsletterService(services.FirestoreClient),
+		AddressService:      services.NewAddressService(services.FirestoreClient),
+		ContactUsService:    services.NewContactUsService(services.FirestoreClient),
 	}
 
 	// Initialize ServiceContainer with all services
@@ -65,7 +68,11 @@ func main() {
 		},
 	}))
 
-	routes.SetupAllRoutes(app, serviceContainer)
+	// routes.SetupAllRoutes(app, serviceContainer)
+
+	if err := routes.SetupAllRoutes(app, serviceContainer); err != nil {
+		log.Fatalf("Failed to setup routes: %v", err)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {

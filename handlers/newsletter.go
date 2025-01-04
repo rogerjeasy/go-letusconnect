@@ -167,28 +167,15 @@ func (s *NewsletterHandler) GetAllSubscribers(c *fiber.Ctx) error {
 	})
 }
 
-// GetTotalSubscribers returns the total number of subscribed users
 func (s *NewsletterHandler) GetTotalSubscribers(c *fiber.Ctx) error {
-	ctx := context.Background()
-	newsletterCollection := services.FirestoreClient.Collection("newsletters")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// Count all documents in the newsletter collection
-	iter := newsletterCollection.Documents(ctx)
-	defer iter.Stop()
-
-	count := 0
-	for {
-		_, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			log.Printf("Error counting subscribers: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to count subscribers",
-			})
-		}
-		count++
+	count, err := s.newsletterService.GetTotalSubscribers(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

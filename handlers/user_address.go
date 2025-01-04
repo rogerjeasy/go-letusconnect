@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"context"
-	"log"
 	"strings"
 	"time"
 
-	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
@@ -24,9 +22,7 @@ func NewAddressHandler(addressService *services.AddressService) *AddressHandler 
 	}
 }
 
-// CRUD operations for user addresses
 func (a *AddressHandler) CreateUserAddress(c *fiber.Ctx) error {
-	// Extract Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -34,7 +30,6 @@ func (a *AddressHandler) CreateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate the token and extract the UID
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -42,52 +37,24 @@ func (a *AddressHandler) CreateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the request body into a map
-	var requestData map[string]interface{}
-	if err := c.BodyParser(&requestData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
-		})
-	}
-
-	// Map the frontend data to the UserAddress struct
-	address := mappers.MapFrontendToUserAddress(requestData)
-	address.UID = uid
-
-	// Convert the address to firestore format
-	backendAddress := mappers.MapUserAddressToBackend(address)
-
-	// Add the address to the Firestore collection
-	docRef, _, err := services.FirestoreClient.Collection("user_addresses").Add(context.Background(), backendAddress)
+	createdAddress, err := a.AddressService.CreateUserAddress(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to save address",
+			"error": err.Error(),
 		})
 	}
 
-	// Set the ID field to the document ID
-	backendAddress["id"] = docRef.ID
-
-	// Update the document with the ID field
-	_, err = docRef.Set(context.Background(), backendAddress, firestore.MergeAll)
-	if err != nil {
-		log.Printf("Error updating Firestore: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update address with document ID",
-		})
-	}
-
-	// Map the backend address back to frontend format
-	frontendAddress := mappers.MapBackendToFrontend(backendAddress)
+	// Map the address to frontend format
+	// frontendAddress := mappers.MapBackendToFrontend(mappers.MapUserAddressToBackend(createdAddress))
+	addressUser := mappers.MapUserAddressToFrontend(createdAddress)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "Address created successfully",
-		"address": frontendAddress,
+		"data":    addressUser,
 	})
 }
 
 func (a *AddressHandler) UpdateUserAddress(c *fiber.Ctx) error {
-	// Extract Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -95,7 +62,6 @@ func (a *AddressHandler) UpdateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate token
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -103,7 +69,6 @@ func (a *AddressHandler) UpdateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get Address ID
 	addressID := c.Params("id")
 	if addressID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -111,7 +76,6 @@ func (a *AddressHandler) UpdateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse request body into a map
 	var requestData map[string]interface{}
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -119,52 +83,29 @@ func (a *AddressHandler) UpdateUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
-	// Fetch current address from Firestore
-	docRef := services.FirestoreClient.Collection("user_addresses").Doc(addressID)
-	docSnapshot, err := docRef.Get(context.Background())
+	updatedAddress := mappers.MapFrontendToUserAddress(requestData)
+
+	result, err := a.AddressService.UpdateUserAddress(addressID, uid, updatedAddress)
 	if err != nil {
-		if strings.Contains(err.Error(), "NotFound") {
+		if err.Error() == "unauthorized to update this address" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		if strings.Contains(err.Error(), "failed to fetch address") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Address not found",
 			})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch address",
+			"error": err.Error(),
 		})
 	}
 
-	// Verify if the address belongs to the current user
-	data := docSnapshot.Data()
-	if data["uid"] != uid {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "You are not authorized to update this address",
-		})
-	}
-
-	// Map frontend data to UserAddress struct
-	updatedAddress := mappers.MapFrontendToUserAddress(requestData)
-
-	// Preserve UID
-	updatedAddress.UID = uid
-
-	// Map to backend format
-	backendUpdates := mappers.MapUserAddressToBackend(updatedAddress)
-
-	// Update Firestore document
-	_, err = docRef.Set(context.Background(), backendUpdates, firestore.MergeAll)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update address",
-		})
-	}
-
-	// Map the backend data to frontend format
-	frontendAddress := mappers.MapBackendToFrontend(backendUpdates)
-
-	// Return the updated address
+	frontendAddress := mappers.MapUserAddressToFrontend(result)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Address updated successfully",
-		"address": frontendAddress,
+		"data":    frontendAddress,
 	})
 }
 
@@ -185,31 +126,38 @@ func (a *AddressHandler) GetUserAddress(c *fiber.Ctx) error {
 		})
 	}
 
+	if a.AddressService == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Address service is not initialized",
+		})
+	}
+
 	// Get addresses using the service function
 	addresses, err := a.AddressService.GetUserAddresses(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch addresses",
+			"error": "Failed to fetch addresses: " + err.Error(),
 		})
 	}
 
+	// Handle empty results
+	if len(addresses) == 0 {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message":   "No addresses found for the user",
+			"addresses": []models.UserAddress{},
+		})
+	}
+
+	// Map addresses to frontend format
 	var frontendAddresses []map[string]interface{}
 	for _, address := range addresses {
 		frontendAddress := mappers.MapUserAddressToFrontend(address)
 		frontendAddresses = append(frontendAddresses, frontendAddress)
 	}
 
-	// Return a proper message if no addresses are found
-	if len(frontendAddresses) == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "No addresses found for the user",
-		})
-	}
-
-	// Return the addresses in frontend format
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message":   "Addresses retrieved successfully",
-		"addresses": frontendAddresses,
+		"message": "Addresses retrieved successfully",
+		"data":    frontendAddresses,
 	})
 }
 

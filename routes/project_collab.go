@@ -1,15 +1,30 @@
 package routes
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/handlers"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-// project collaboration routes
-func setupProjectCollab(api fiber.Router, projectCollabService *services.ProjectService) {
+func setupProjectCollab(api fiber.Router, sc *services.ServiceContainer) error {
+	if api == nil {
+		return fmt.Errorf("api router cannot be nil")
+	}
+	if sc == nil {
+		return fmt.Errorf("service container cannot be nil")
+	}
+	if sc.ProjectService == nil {
+		return fmt.Errorf("project service cannot be nil")
+	}
+
+	handler := handlers.NewProjectHandler(sc.ProjectService)
+	if handler == nil {
+		return fmt.Errorf("failed to create project handler")
+	}
+
 	projects := api.Group("/projects")
-	handler := handlers.NewProjectHandler(projectCollabService)
 
 	// 2. Collaboration Endpoints
 	projects.Post("/:id/join", handler.JoinProjectCollab)
@@ -22,4 +37,5 @@ func setupProjectCollab(api fiber.Router, projectCollabService *services.Project
 	projects.Put("/:id/tasks/:taskID", handler.UpdateTask)
 	projects.Delete("/:id/tasks/:taskID", handler.DeleteTask)
 
+	return nil
 }

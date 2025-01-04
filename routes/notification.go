@@ -1,15 +1,32 @@
 package routes
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/handlers"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-// routes/notifications.go
-func setupNotificationRoutes(api fiber.Router, notificationService *services.NotificationService) {
+func setupNotificationRoutes(api fiber.Router, sc *services.ServiceContainer) error {
+	// Validate inputs
+	if api == nil {
+		return fmt.Errorf("api router cannot be nil")
+	}
+	if sc == nil {
+		return fmt.Errorf("service container cannot be nil")
+	}
+	if sc.NotificationService == nil {
+		return fmt.Errorf("notification service cannot be nil")
+	}
+
+	// Create handler
+	handler := handlers.NewNotificationHandler(sc.NotificationService)
+	if handler == nil {
+		return fmt.Errorf("failed to create notification handler")
+	}
+
 	notifications := api.Group("/notifications")
-	handler := handlers.NewNotificationHandler(notificationService)
 
 	notifications.Get("/targeted", handler.ListTargetedNotifications)
 	notifications.Get("/unread-count", handler.GetUnreadNotificationCount)
@@ -21,4 +38,6 @@ func setupNotificationRoutes(api fiber.Router, notificationService *services.Not
 	notifications.Put("/:id", handler.UpdateNotification)
 	notifications.Delete("/:id", handler.DeleteNotification)
 	// notifications.Patch("/:id/read", handler.MarkNotificationAsRead)
+
+	return nil
 }

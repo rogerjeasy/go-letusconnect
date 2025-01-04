@@ -1,15 +1,33 @@
 package routes
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/handlers"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-// group chat routes
-func setupGroupChatRoutes(api fiber.Router, groupChatService *services.GroupChatService, userService *services.UserService) {
+func setupGroupChatRoutes(api fiber.Router, sc *services.ServiceContainer) error {
+	if api == nil {
+		return fmt.Errorf("api router cannot be nil")
+	}
+	if sc == nil {
+		return fmt.Errorf("service container cannot be nil")
+	}
+	if sc.GroupChatService == nil {
+		return fmt.Errorf("group chat service cannot be nil")
+	}
+	if sc.UserService == nil {
+		return fmt.Errorf("user service cannot be nil")
+	}
+
+	handler := handlers.NewGroupChatHandler(sc.GroupChatService, sc.UserService)
+	if handler == nil {
+		return fmt.Errorf("failed to create group chat handler")
+	}
+
 	groupChats := api.Group("/group-chats")
-	handler := handlers.NewGroupChatHandler(groupChatService, userService)
 
 	// Group Chat Routes
 	groupChats.Post("/", handler.CreateGroupChatF)
@@ -56,4 +74,6 @@ func setupGroupChatRoutes(api fiber.Router, groupChatService *services.GroupChat
 	// groupChats.Get("/reports/:groupChatId", handlers.GetReportsHandler)
 	// groupChats.Post("/block-participant", handlers.BlockParticipantHandler)
 	// groupChats.Post("/unblock-participant", handlers.UnblockParticipantHandler)
+
+	return nil
 }

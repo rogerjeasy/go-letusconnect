@@ -1,28 +1,50 @@
 package routes
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/middleware"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-func SetupAllRoutes(app *fiber.App, services *services.ServiceContainer) {
+func SetupAllRoutes(app *fiber.App, sc *services.ServiceContainer) error {
+	// Validate inputs
+	if app == nil {
+		return fmt.Errorf("fiber app cannot be nil")
+	}
+	if sc == nil {
+		return fmt.Errorf("service container cannot be nil")
+	}
+
 	api := app.Group("/api/v1")
 
 	// Apply common middleware
 	api.Use(middleware.ConfigureCORS())
 
-	// Setup route groups
-	setupUserRoutes(api, services.UserService)
-	setupNotificationRoutes(api, services.NotificationService)
-	setupAuthRoutes(api, services.AuthService)
-	setupFAQRoutes(api, services.FAQService)
-	setupProjectCoreRoutes(api, services.ProjectCoreService, services.UserService)
-	setupProjectCollab(api, services.ProjectService)
-	setupDirectMessageRoutes(api, services.MessageService, services.UserService)
-	setupGroupChatRoutes(api, services.GroupChatService, services.UserService)
-	setupUserConnectionRoutes(api, services.ConnectionService)
-	setupAddressRoutes(api, services.AddressService)
-	setupNewsletterRoutes(api, services.NewsletterService)
-	setupContactUserRoutes(api, services.ContactUsService)
+	routeSetups := []struct {
+		name string
+		fn   func(fiber.Router, *services.ServiceContainer) error
+	}{
+		{"user", setupUserRoutes},
+		{"notification", setupNotificationRoutes},
+		{"auth", setupAuthRoutes},
+		{"faq", setupFAQRoutes},
+		{"projectCore", setupProjectCoreRoutes},
+		{"projectCollab", setupProjectCollab},
+		{"directMessage", setupDirectMessageRoutes},
+		{"groupChat", setupGroupChatRoutes},
+		{"userConnection", setupUserConnectionRoutes},
+		{"address", setupAddressRoutes},
+		{"newsletter", setupNewsletterRoutes},
+		{"contactUser", setupContactUserRoutes},
+	}
+
+	for _, setup := range routeSetups {
+		if err := setup.fn(api, sc); err != nil {
+			return fmt.Errorf("failed to setup %s routes: %w", setup.name, err)
+		}
+	}
+
+	return nil
 }
