@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
@@ -17,18 +18,22 @@ func NewChatGPTHandler(service *services.ChatGPTService) *ChatGPTHandler {
 
 func (h *ChatGPTHandler) HandleChat(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
+
+	var uid string
+	var err error
+
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Authorization token is required",
-		})
+		uid = uuid.New().String()
+	} else {
+		// Validate token and get UID
+		uid, err = validateToken(strings.TrimPrefix(token, "Bearer "))
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Invalid token",
+			})
+		}
 	}
-	// Validate token and get UID
-	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid token",
-		})
-	}
+
 	var request struct {
 		Message string `json:"message"`
 	}
