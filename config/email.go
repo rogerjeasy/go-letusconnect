@@ -25,6 +25,7 @@ var (
 	PusherCluster string
 
 	CloudinaryURL string
+	OpenAIKey     string
 )
 
 func LoadConfig() {
@@ -54,4 +55,7 @@ func LoadConfig() {
 	FirebaseSignInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + FirebaseAPiKey
 
 	CloudinaryURL = os.Getenv("CLOUDINARY_URL")
+
+	// openai
+	OpenAIKey = os.Getenv("OPENAI_API_KEY")
 }

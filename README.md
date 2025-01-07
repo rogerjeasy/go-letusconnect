@@ -1,7 +1,7 @@
 
 ---
 
-## 📂 `backend/README.md`
+## 📂 `README.md`
 
 # 🚀 Master's Program Networking & Collaboration Platform - Backend
 

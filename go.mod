@@ -56,6 +56,7 @@ require (
 	github.com/pusher/pusher-http-go v4.0.1+incompatible // indirect
 	github.com/pusher/pusher-http-go/v5 v5.1.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/sashabaranov/go-openai v1.36.1
 	github.com/stretchr/testify v1.10.0
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect

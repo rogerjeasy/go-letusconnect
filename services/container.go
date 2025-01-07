@@ -16,6 +16,7 @@ type ServiceContainer struct {
 	AddressService        *AddressService
 	NewsletterService     *NewsletterService
 	ContactUsService      *ContactUsService
+	ChatGPTService        *ChatGPTService
 	// Add other services as needed
 }
 
@@ -33,6 +34,7 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 		AddressService:      NewAddressService(firestoreClient),
 		NewsletterService:   NewNewsletterService(firestoreClient),
 		ContactUsService:    NewContactUsService(firestoreClient),
+		ChatGPTService:      NewChatGPTService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services
 	}

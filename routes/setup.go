@@ -38,6 +38,7 @@ func SetupAllRoutes(app *fiber.App, sc *services.ServiceContainer) error {
 		{"address", setupAddressRoutes},
 		{"newsletter", setupNewsletterRoutes},
 		{"contactUser", setupContactUserRoutes},
+		{"chat", setupChatRoutes},
 	}
 
 	for _, setup := range routeSetups {

@@ -47,6 +47,7 @@ func main() {
 		NewsletterService:   services.NewNewsletterService(services.FirestoreClient),
 		AddressService:      services.NewAddressService(services.FirestoreClient),
 		ContactUsService:    services.NewContactUsService(services.FirestoreClient),
+		ChatGPTService:      services.NewChatGPTService(services.FirestoreClient),
 	}
 
 	// Initialize ServiceContainer with all services
