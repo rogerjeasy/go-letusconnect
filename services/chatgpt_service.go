@@ -121,7 +121,6 @@ func (s *ChatGPTService) GenerateResponse(ctx context.Context, prompt string, us
 func (s *ChatGPTService) GetUserConversations(ctx context.Context, userID string) ([]models.Conversation, error) {
 	iter := s.firestoreClient.Collection("chatgpt_conversations").
 		Where("user_id", "==", userID).
-		OrderBy("updated_at", firestore.Desc).
 		Documents(ctx)
 
 	var conversations []models.Conversation
