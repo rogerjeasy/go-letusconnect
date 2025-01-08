@@ -26,8 +26,9 @@ func setupChatRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 
 	chat := api.Group("/chat")
 	chat.Post("/", handler.HandleChat)
-	chat.Get("/history", handler.GetChatHistory)
-	chat.Delete("/history/:id", handler.DeleteChatHistory)
+	chat.Get("/conversations", handler.GetUserConversations)
+	chat.Get("/conversations/:id", handler.GetConversation)
+	chat.Delete("/conversations/:id", handler.DeleteConversation)
 
 	return nil
 }

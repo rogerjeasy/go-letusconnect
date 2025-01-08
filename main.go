@@ -34,24 +34,7 @@ func main() {
 	// connectionService := services.NewUserConnectionService(services.FirestoreClient)
 	userService := services.NewUserService(services.FirestoreClient)
 
-	serviceContainer := &services.ServiceContainer{
-		UserService:         userService,
-		ConnectionService:   services.NewUserConnectionService(services.FirestoreClient, userService), // Pass userService here
-		NotificationService: services.NewNotificationService(services.FirestoreClient),
-		AuthService:         services.NewAuthService(services.FirestoreClient),
-		FAQService:          services.NewFAQService(services.FirestoreClient),
-		ProjectCoreService:  services.NewProjectCoreService(services.FirestoreClient),
-		ProjectService:      services.NewProjectService(services.FirestoreClient, userService),
-		MessageService:      services.NewMessageService(services.FirestoreClient),
-		GroupChatService:    services.NewGroupChatService(services.FirestoreClient),
-		NewsletterService:   services.NewNewsletterService(services.FirestoreClient),
-		AddressService:      services.NewAddressService(services.FirestoreClient),
-		ContactUsService:    services.NewContactUsService(services.FirestoreClient),
-		ChatGPTService:      services.NewChatGPTService(services.FirestoreClient),
-	}
-
-	// Initialize ServiceContainer with all services
-	// serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService)
+	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService)
 
 	app := fiber.New()
 
@@ -86,6 +69,10 @@ func main() {
 	go func() {
 		_ = <-c
 		fmt.Println("Gracefully shutting down...")
+		// Cleanup PDFService
+		if serviceContainer.PDFService != nil {
+			serviceContainer.PDFService.Stop()
+		}
 		_ = app.Shutdown()
 	}()
 

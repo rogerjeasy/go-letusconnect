@@ -26,6 +26,7 @@ var (
 
 	CloudinaryURL string
 	OpenAIKey     string
+	PDFContextURL string
 )
 
 func LoadConfig() {
@@ -58,4 +59,5 @@ func LoadConfig() {
 
 	// openai
 	OpenAIKey = os.Getenv("OPENAI_API_KEY")
+	PDFContextURL = os.Getenv("PDF_CONTEXT_URL")
 }

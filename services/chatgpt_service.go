@@ -6,36 +6,42 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/config"
+	"github.com/rogerjeasy/go-letusconnect/mappers"
+	"github.com/rogerjeasy/go-letusconnect/models"
 	openai "github.com/sashabaranov/go-openai"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
-
-type ChatHistory struct {
-	ID        string    `json:"id" firestore:"id"`
-	UserID    string    `json:"userId" firestore:"userId"`
-	Message   string    `json:"message" firestore:"message"`
-	Response  string    `json:"response" firestore:"response"`
-	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
-}
 
 type ChatGPTService struct {
 	client          *openai.Client
 	firestoreClient *firestore.Client
+	pdfService      *PDFService
 }
 
-func NewChatGPTService(firestoreClient *firestore.Client) *ChatGPTService {
+func NewChatGPTService(firestoreClient *firestore.Client, pdfService *PDFService) *ChatGPTService {
 	return &ChatGPTService{
 		client:          openai.NewClient(config.OpenAIKey),
 		firestoreClient: firestoreClient,
+		pdfService:      pdfService,
 	}
 }
 
-func (s *ChatGPTService) GenerateResponse(ctx context.Context, prompt string, userID string) (*ChatHistory, error) {
+func (s *ChatGPTService) GenerateResponse(ctx context.Context, prompt string, userID string, conversationID string) (*models.Conversation, error) {
+	// Generate response from ChatGPT
+	pdfContext := s.pdfService.GetContext()
+
 	resp, err := s.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
 			Model: openai.GPT4,
 			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: fmt.Sprintf("You are an AI assistant helping users navigate and understand our website. Here's the context about our website:\n\n%s\n\nPlease use this information to provide accurate and helpful responses.", pdfContext),
+				},
 				{
 					Role:    openai.ChatMessageRoleUser,
 					Content: prompt,
@@ -48,74 +54,119 @@ func (s *ChatGPTService) GenerateResponse(ctx context.Context, prompt string, us
 	if err != nil {
 		return nil, fmt.Errorf("OpenAI API error: %v", err)
 	}
-
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("no response generated")
 	}
 
-	chatHistory := &ChatHistory{
-		UserID:    userID,
+	now := time.Now()
+	newMessage := models.MessageConversation{
+		ID:        uuid.New().String(),
+		CreatedAt: now,
 		Message:   prompt,
 		Response:  resp.Choices[0].Message.Content,
-		CreatedAt: time.Now(),
+		Role:      "user",
 	}
 
-	// Save to Firestore
-	doc, _, err := s.firestoreClient.Collection("chatgpt_conversations").Add(ctx, chatHistory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save chat history: %v", err)
-	}
-	chatHistory.ID = doc.ID
+	var conversation *models.Conversation
+	var docRef *firestore.DocumentRef
 
-	return chatHistory, nil
+	// If conversationID is empty, create new conversation
+	if conversationID == "" {
+		conversation = &models.Conversation{
+			ID:        uuid.New().String(),
+			UserID:    userID,
+			Title:     prompt[:min(30, len(prompt))] + "...", // Create title from first 30 chars
+			CreatedAt: now,
+			UpdatedAt: now,
+			Messages:  []models.MessageConversation{newMessage},
+		}
+
+		// Convert to Firestore format and save
+		firestoreData := mappers.MapConversationGoToFirestore(*conversation)
+		docRef = s.firestoreClient.Collection("chatgpt_conversations").Doc(conversation.ID)
+
+		_, err = docRef.Set(ctx, firestoreData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create conversation: %v", err)
+		}
+	} else {
+		// Get existing conversation
+		docRef = s.firestoreClient.Collection("chatgpt_conversations").Doc(conversationID)
+		doc, err := docRef.Get(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get conversation: %v", err)
+		}
+
+		// Convert Firestore data to Go struct
+		firestoreData := doc.Data()
+		existingConversation := mappers.MapConversationFirestoreToGo(firestoreData)
+
+		// Update conversation with new message
+		existingConversation.Messages = append(existingConversation.Messages, newMessage)
+		existingConversation.UpdatedAt = now
+
+		// Convert back to Firestore format and update
+		updatedData := mappers.MapConversationGoToFirestore(existingConversation)
+		_, err = docRef.Set(ctx, updatedData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update conversation: %v", err)
+		}
+
+		conversation = &existingConversation
+	}
+
+	return conversation, nil
 }
 
-func (s *ChatGPTService) GetChatHistory(ctx context.Context, userID string) ([]ChatHistory, error) {
-	var histories []ChatHistory
-
+func (s *ChatGPTService) GetUserConversations(ctx context.Context, userID string) ([]models.Conversation, error) {
 	iter := s.firestoreClient.Collection("chatgpt_conversations").
-		Where("userId", "==", userID).
-		OrderBy("createdAt", firestore.Desc).
-		Limit(50).
+		Where("user_id", "==", userID).
+		OrderBy("updated_at", firestore.Desc).
 		Documents(ctx)
 
+	var conversations []models.Conversation
 	for {
 		doc, err := iter.Next()
 		if err != nil {
 			break
 		}
-		var history ChatHistory
-		if err := doc.DataTo(&history); err != nil {
-			return nil, fmt.Errorf("failed to parse chat history: %v", err)
-		}
-		history.ID = doc.Ref.ID
-		histories = append(histories, history)
+		conversation := mappers.MapConversationFirestoreToGo(doc.Data())
+		conversations = append(conversations, conversation)
 	}
 
-	return histories, nil
+	return conversations, nil
 }
 
-func (s *ChatGPTService) DeleteChatHistory(ctx context.Context, historyID string, userID string) error {
-	doc := s.firestoreClient.Collection("chatgpt_conversations").Doc(historyID)
-
-	// Verify ownership
-	snapshot, err := doc.Get(ctx)
+func (s *ChatGPTService) GetConversation(ctx context.Context, conversationID string) (*models.Conversation, error) {
+	doc, err := s.firestoreClient.Collection("chatgpt_conversations").Doc(conversationID).Get(ctx)
 	if err != nil {
-		return fmt.Errorf("chat history not found")
+		return nil, fmt.Errorf("failed to get conversation: %v", err)
 	}
 
-	var history ChatHistory
-	if err := snapshot.DataTo(&history); err != nil {
-		return fmt.Errorf("failed to parse chat history")
+	conversation := mappers.MapConversationFirestoreToGo(doc.Data())
+	return &conversation, nil
+}
+
+func (s *ChatGPTService) DeleteConversation(ctx context.Context, conversationID string, userID string) error {
+	docRef := s.firestoreClient.Collection("chatgpt_conversations").Doc(conversationID)
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return fmt.Errorf("conversation not found")
+		}
+		return fmt.Errorf("failed to get conversation: %v", err)
 	}
 
-	if history.UserID != userID {
-		return fmt.Errorf("unauthorized access")
+	conversation := mappers.MapConversationFirestoreToGo(doc.Data())
+
+	if conversation.UserID != userID {
+		return fmt.Errorf("unauthorized: user does not own this conversation")
 	}
 
-	// if err := doc.Delete(ctx); err != nil {
-	//     return fmt.Errorf("failed to delete chat history: %v", err)
-	// }
+	_, err = docRef.Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete conversation: %v", err)
+	}
 
 	return nil
 }
