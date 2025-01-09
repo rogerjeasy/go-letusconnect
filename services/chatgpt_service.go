@@ -40,7 +40,7 @@ func (s *ChatGPTService) GenerateResponse(ctx context.Context, prompt string, us
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: fmt.Sprintf("You are an AI assistant helping users navigate and understand our website. Here's the context about our website:\n\n%s\n\nPlease use this information to provide accurate and helpful responses.", pdfContext),
+					Content: fmt.Sprintf("You are an AI assistant helping users navigate and understand our website. Here's the context about our website:\n\n%s\n\nPlease use this information to provide accurate and helpful responses. And in your response, do not put URL path in parentheses, and should always start with the forward slash symbole /", pdfContext),
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
