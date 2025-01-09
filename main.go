@@ -30,8 +30,6 @@ func main() {
 	// Initialize Cloudinary
 	services.InitCloudinary()
 
-	// notificationService := services.NewNotificationService(services.FirestoreClient)
-	// connectionService := services.NewUserConnectionService(services.FirestoreClient)
 	userService := services.NewUserService(services.FirestoreClient)
 
 	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService)

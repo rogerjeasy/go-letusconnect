@@ -21,11 +21,14 @@ type ServiceContainer struct {
 	ContactUsService      *ContactUsService
 	ChatGPTService        *ChatGPTService
 	PDFService            *PDFService
+	UploadPDFService      *UploadPDFService
 	// Add other services as needed
 }
 
 func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserService) *ServiceContainer {
 	pdfService := NewPDFService(firestoreClient, config.PDFContextURL)
+	uploadPdfService, _ := NewUploadPDFService(firestoreClient, config.CloudinaryURL)
+
 	return &ServiceContainer{
 		UserService:         NewUserService(firestoreClient),
 		ConnectionService:   NewUserConnectionService(firestoreClient, userSerrvice),
@@ -41,6 +44,7 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 		ContactUsService:    NewContactUsService(firestoreClient),
 		PDFService:          pdfService,
 		ChatGPTService:      NewChatGPTService(firestoreClient, pdfService),
+		UploadPDFService:    uploadPdfService,
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services
 	}
