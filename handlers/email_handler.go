@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/smtp"
 	"strings"
 
@@ -565,4 +566,121 @@ func SendProjectInvitationEmail(toEmail, userName, projectName, inviterName stri
 </html>`, userName, inviterName, projectName, projectName, inviterName)
 
 	return sendEmail(toEmail, subject, body)
+}
+
+// SendEmailToNotifyRequestJoinProject sends emails to notify project members about a new join request
+func SendEmailToNotifyRequestJoinProject(toEmails []string, requestingUserName, requestingUserUID, projectName string) error {
+	subject := "New Project Join Request Received"
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    color: #333333;
+    background-color: #f9f9f9;
+    padding: 20px;
+    text-align: center;
+  }
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  h2 {
+    color: #4A90E2;
+  }
+  p {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .button {
+    display: inline-block;
+    background-color: #4A90E2;
+    color: #ffffff;
+    padding: 12px 24px;
+    margin: 20px 0;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+  }
+  .button:hover {
+    background-color: #357ABD;
+  }
+  .profile-link {
+    color: #4A90E2;
+    text-decoration: none;
+    font-weight: bold;
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  .profile-link:hover {
+    border-bottom-color: #4A90E2;
+  }
+  .footer {
+    margin-top: 30px;
+    font-size: 14px;
+    color: #777777;
+    border-top: 1px solid #eee;
+    padding-top: 20px;
+  }
+  .highlight {
+    background-color: #F8F9FA;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 15px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Exciting News! New Join Request 📬</h2>
+  <p>
+    <a href="https://letusconnect.vercel.app/profile/%s" class="profile-link">%s</a> has expressed interest in joining your project!
+  </p>
+  <div class="highlight">
+    <p style="font-size: 18px; margin: 0;">
+      Project: <strong>"%s"</strong>
+    </p>
+  </div>
+  <p>
+    This is a great opportunity to potentially welcome a new member to your team. We encourage you to:
+  </p>
+  <ul style="text-align: left; padding-left: 30px;">
+    <li>Review their profile to learn about their skills and experience</li>
+    <li>Check their portfolio and past contributions</li>
+    <li>Consider how they might enhance your project</li>
+  </ul>
+  <p>
+    Ready to review their request?
+  </p>
+  <a href="https://letusconnect.vercel.app/projects/manage-requests" class="button">Review Join Request →</a>
+  <p style="font-size: 14px; color: #666;">
+    You can easily accept or decline this request through your project management dashboard.
+  </p>
+  <p class="footer">
+    Together, let's build amazing things! 🚀<br><br>
+    Best regards,<br>
+    <strong>The LetUsConnect Team</strong><br>
+    <span style="font-size: 12px; color: #999;">Building Connections, Fostering Collaboration</span>
+  </p>
+</div>
+</body>
+</html>`, requestingUserUID, requestingUserName, projectName)
+
+	// Send email to each recipient
+	for _, email := range toEmails {
+		if err := sendEmail(email, subject, body); err != nil {
+			log.Printf("Failed to send join request notification email to %s: %v", email, err)
+			continue
+		}
+	}
+
+	return nil
 }

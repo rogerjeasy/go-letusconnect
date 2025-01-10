@@ -91,3 +91,23 @@ func (s *ProjectService) JoinProject(ctx context.Context, projectID, userID, mes
 
 	return nil
 }
+
+// GetProjectByID retrieves a project from Firestore by its ID and maps it to a Go struct
+func (s *ProjectService) GetProjectByID(ctx context.Context, projectID string) (models.Project, error) {
+	// Get project document from Firestore
+	doc, err := s.firestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	if err != nil {
+		return models.Project{}, fmt.Errorf("failed to fetch project: %v", err)
+	}
+
+	// Get the project data
+	projectData := doc.Data()
+	if projectData == nil {
+		return models.Project{}, fmt.Errorf("project data is nil")
+	}
+
+	// Map the Firestore data to a Go struct
+	project := mappers.MapProjectFirestoreToGo(projectData)
+
+	return project, nil
+}

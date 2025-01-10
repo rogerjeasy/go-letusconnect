@@ -201,3 +201,52 @@ func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUserna
 	}
 	return nil
 }
+
+func SendProjectJoinRequestNotification(ctx context.Context, requestingUID, requestingUsername, projectName string, projectMemberUIDs []string) error {
+	// Create a timeout context
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	// Initialize read status map and targeted users list
+	readStatus := make(map[string]bool)
+
+	// Set read status for each member
+	for _, memberUID := range projectMemberUIDs {
+		if memberUID == "" {
+			continue // Skip empty UIDs
+		}
+		readStatus[memberUID] = false
+	}
+
+	// Create notification service with error handling
+	notificationService := NewNotificationService(FirestoreClient)
+	if notificationService == nil {
+		return fmt.Errorf("failed to create notification service")
+	}
+
+	notification := models.Notification{
+		UserID:          requestingUID,
+		ActorID:         requestingUID,
+		ActorName:       requestingUsername,
+		ActorType:       "user",
+		Type:            models.NotificationType("project_join_request"),
+		Title:           fmt.Sprintf("%s wants to join your project", requestingUsername),
+		Content:         fmt.Sprintf("%s has requested to join %s. Review their profile and respond to their request.", requestingUsername, projectName),
+		Category:        "project",
+		Priority:        "normal",
+		Status:          "unread",
+		ReadStatus:      readStatus,
+		IsImportant:     true,
+		TargetedUsers:   projectMemberUIDs,
+		DeliveryChannel: "push",
+		CreatedAt:       time.Now(),
+	}
+
+	// Save the notification with error handling
+	_, err := notificationService.CreateNotification(ctx, notification)
+	if err != nil {
+		return fmt.Errorf("failed to create notification: %v", err)
+	}
+
+	return nil
+}

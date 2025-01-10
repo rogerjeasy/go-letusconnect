@@ -20,9 +20,17 @@ type ProjectHandler struct {
 	userService    *services.UserService
 }
 
-func NewProjectHandler(projectService *services.ProjectService) *ProjectHandler {
+func NewProjectHandler(projectService *services.ProjectService, userService *services.UserService) *ProjectHandler {
+	if projectService == nil {
+		log.Fatal("projectService cannot be nil")
+	}
+	if userService == nil {
+		log.Fatal("userService cannot be nil")
+	}
+
 	return &ProjectHandler{
 		projectService: projectService,
+		userService:    userService,
 	}
 }
 
@@ -54,6 +62,7 @@ func (h *ProjectHandler) JoinProjectCollab(c *fiber.Ctx) error {
 	// Parse request body
 	var requestData struct {
 		Message string `json:"message"`
+		Title   string `json:"title"`
 	}
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -83,17 +92,52 @@ func (h *ProjectHandler) JoinProjectCollab(c *fiber.Ctx) error {
 	}
 
 	// Send email notification
-	// user, err := h.userService.GetUserByUID(uid)
-	// if err := SendJoinRequestSubmittedEmail(user[], user.Username, projectName); err != nil {
-	//     log.Printf("Error sending join request submitted email: %v", err)
-	// }
+	user, err := h.userService.GetUserByUID(uid)
+	if err != nil {
+		log.Printf("Error fetching user data for email notification: %v", err)
+	}
+	email, ok := user["email"].(string)
+	if !ok {
+		log.Printf("Invalid email format in user data: %+v", user)
+	}
+
+	username, ok := user["username"].(string)
+	if !ok {
+		log.Printf("Invalid username format in user data: %+v", user)
+	}
+
+	if err := SendJoinRequestSubmittedEmail(email, username, requestData.Title); err != nil {
+		log.Printf("Error sending join request submitted email: %v", err)
+	}
+
+	ownerEmails := []string{}
+	ownerIDs := []string{}
+	project, err := h.projectService.GetProjectByID(c.Context(), projectID)
+	if err != nil {
+		log.Printf("Error fetching project data for email notification: %v", err)
+	}
+	for _, participant := range project.Participants {
+		if participant.Role == "owner" {
+			ownerEmails = append(ownerEmails, participant.Email)
+			ownerIDs = append(ownerIDs, participant.UserID)
+		}
+	}
+
+	if len(ownerEmails) > 0 {
+		if err := SendEmailToNotifyRequestJoinProject(ownerEmails, username, uid, requestData.Title); err != nil {
+			log.Printf("Error sending join request received email: %v", err)
+		}
+	}
+	// Send notification to owners
+	if err := services.SendProjectJoinRequestNotification(c.Context(), uid, username, requestData.Title, ownerIDs); err != nil {
+		log.Printf("Error sending join request notification: %v", err)
+	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Join request submitted successfully",
 	})
 }
 
-// RemoveParticipantCollab handles removing a participant from a project
 func (h *ProjectHandler) RemoveParticipantCollab(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")

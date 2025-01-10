@@ -18,8 +18,11 @@ func setupProjectCollab(api fiber.Router, sc *services.ServiceContainer) error {
 	if sc.ProjectService == nil {
 		return fmt.Errorf("project service cannot be nil")
 	}
+	if sc.UserService == nil {
+		return fmt.Errorf("user service cannot be nil")
+	}
 
-	handler := handlers.NewProjectHandler(sc.ProjectService)
+	handler := handlers.NewProjectHandler(sc.ProjectService, sc.UserService)
 	if handler == nil {
 		return fmt.Errorf("failed to create project handler")
 	}
