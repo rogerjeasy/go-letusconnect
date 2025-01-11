@@ -337,12 +337,12 @@ func (h *ProjectHandler) AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 				}
 
 				// Add the participant to the group chat using projectID
-				participantsToAdd := []models.Participant{newParticipant}
-				if err := services.AddParticipantsToGroupChat(ctx, "", projectID, uid, participantsToAdd); err != nil {
-					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-						"error": fmt.Sprintf("Failed to add participant(s) to group chat: %v", err),
-					})
-				}
+				// participantsToAdd := []models.Participant{newParticipant}
+				// if err := services.AddParticipantsToGroupChat(ctx, "", projectID, uid, participantsToAdd); err != nil {
+				// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				// 		"error": fmt.Sprintf("Failed to add participant(s) to group chat: %v", err),
+				// 	})
+				// }
 				// Send notification email for accepted request
 				if err := SendJoinRequestAcceptedEmail(requestData.Email, requestData.Username, project.Title); err != nil {
 					log.Printf("Failed to send acceptance email: %v", err)

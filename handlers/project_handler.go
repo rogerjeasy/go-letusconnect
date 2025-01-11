@@ -449,9 +449,7 @@ func (h *ProjectHandlerSetup) GetOwnerProjects(c *fiber.Ctx) error {
 	})
 }
 
-// GetParticipationProjects fetches all projects where the user is a participant
 func (h *ProjectHandlerSetup) GetParticipationProjects(c *fiber.Ctx) error {
-	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -459,7 +457,6 @@ func (h *ProjectHandlerSetup) GetParticipationProjects(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate token and get UID
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -468,17 +465,12 @@ func (h *ProjectHandlerSetup) GetParticipationProjects(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
+	var projects []map[string]interface{}
 
-	// Initialize the projects slice to an empty slice
-	var projects []map[string]interface{} = []map[string]interface{}{}
-
-	// Query Firestore for projects where participants array contains the user ID
-	iter := services.FirestoreClient.Collection("projects").Where("participants", "array-contains", map[string]interface{}{
-		"user_id": uid,
-	}).Documents(ctx)
-
+	// Query Firestore for projects where user is a participant
+	query := services.FirestoreClient.Collection("projects").Documents(ctx)
 	for {
-		doc, err := iter.Next()
+		doc, err := query.Next()
 		if err == iterator.Done {
 			break
 		}
@@ -489,22 +481,23 @@ func (h *ProjectHandlerSetup) GetParticipationProjects(c *fiber.Ctx) error {
 		}
 
 		projectData := doc.Data()
+		projectData["id"] = doc.Ref.ID
 
-		// Check if participants field exists and is a slice
-		participants, ok := projectData["participants"].([]interface{})
-		if !ok || len(participants) < 2 {
-			continue // Skip projects that do not have at least two participants
-		}
+		project := mappers.MapProjectFirestoreToGo(projectData)
 
-		// Skip the first participant and check if the user is among the remaining participants
-		for _, participant := range participants[1:] {
-			p, ok := participant.(map[string]interface{})
-			if ok && p["user_id"] == uid {
-				projectFrontend := mappers.MapProjectFirestoreToFrontend(projectData)
-				projectFrontend["id"] = doc.Ref.ID
-				projects = append(projects, projectFrontend)
+		// Check if user is a participant (excluding owner)
+		isParticipant := false
+		for _, participant := range project.Participants {
+			if participant.UserID == uid && participant.Role != "owner" {
+				isParticipant = true
 				break
 			}
+		}
+
+		// If user is a participant, add project to results
+		if isParticipant {
+			frontendProject := mappers.MapProjectFirestoreToFrontend(projectData)
+			projects = append(projects, frontendProject)
 		}
 	}
 
