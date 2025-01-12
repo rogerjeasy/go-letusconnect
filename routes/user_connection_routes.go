@@ -29,6 +29,7 @@ func setupUserConnectionRoutes(api fiber.Router, sc *services.ServiceContainer) 
 	// Core connection endpoints
 	connections.Get("/", connectionHandler.GetUserConnections)
 	connections.Get("/:uid", connectionHandler.GetUserConnectionsByUID)
+	connections.Get("/:uid/count", connectionHandler.GetUserConnectionCount)
 	connections.Delete("/:uid", connectionHandler.RemoveConnection)
 
 	// Connection requests as a sub-resource

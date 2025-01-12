@@ -91,8 +91,38 @@ func (s *UserConnectionService) GetUserConnections(ctx context.Context, uid stri
 }
 
 func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromUID, toUID, message string) error {
-	// Start a transaction
-	err := s.firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+	// First check if users exist and get their connections
+	fromConnections, err := s.GetUserConnections(ctx, fromUID)
+	if err != nil {
+		return fmt.Errorf("failed to get sender's connections: %v", err)
+	}
+
+	toConnections, err := s.GetUserConnections(ctx, toUID)
+	if err != nil {
+		return fmt.Errorf("failed to get recipient's connections: %v", err)
+	}
+
+	// Check if users are already connected
+	if _, exists := fromConnections.Connections[toUID]; exists {
+		return fmt.Errorf("you are already connected with this user")
+	}
+
+	// Check if there's an existing sent request
+	if sentReq, exists := fromConnections.SentRequests[toUID]; exists {
+		if sentReq.Status == "pending" {
+			return fmt.Errorf("you already have a pending connection request to this user")
+		}
+	}
+
+	// Check if there's an existing pending request from the target user
+	if pendingReq, exists := fromConnections.PendingRequests[toUID]; exists {
+		if pendingReq.Status == "pending" {
+			return fmt.Errorf("this user has already sent you a connection request")
+		}
+	}
+
+	// Start a transaction for the actual request sending
+	err = s.firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		fromUsername, err := s.UserService.GetUsernameByUID(fromUID)
 		if err != nil {
 			return fmt.Errorf("failed to get username: %v", err)
@@ -116,17 +146,6 @@ func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromU
 			Status:  "pending",
 		}
 
-		// Get or create connections for both users
-		fromConnections, err := s.GetUserConnections(ctx, fromUID)
-		if err != nil {
-			return err
-		}
-
-		toConnections, err := s.GetUserConnections(ctx, toUID)
-		if err != nil {
-			return err
-		}
-
 		// Update both users' records
 		toConnections.PendingRequests[fromUID] = request
 		fromConnections.SentRequests[toUID] = sentRequest
@@ -135,13 +154,13 @@ func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromU
 		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(fromConnections.ID),
 			mappers.MapConnectionsGoToFirestore(*fromConnections))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to update sender's connections: %v", err)
 		}
 
 		err = tx.Set(s.firestoreClient.Collection("user_connections").Doc(toConnections.ID),
 			mappers.MapConnectionsGoToFirestore(*toConnections))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to update recipient's connections: %v", err)
 		}
 
 		if err := SendConnectionRequestNotification(ctx, fromUID, fromUsername, message, toUID); err != nil {
@@ -151,7 +170,11 @@ func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromU
 		return nil
 	})
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to process connection request: %v", err)
+	}
+
+	return nil
 }
 
 func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fromUID, toUID string) error {
@@ -333,4 +356,15 @@ func (s *UserConnectionService) CancelSentRequest(ctx context.Context, fromUID, 
 
 		return nil
 	})
+}
+
+func (s *UserConnectionService) GetUserConnectionCount(ctx context.Context, uid string) (*int, error) {
+	userConnections, error := s.GetUserConnections(ctx, uid)
+	if error != nil {
+		return nil, error
+	}
+
+	connections := len(userConnections.Connections)
+
+	return &connections, nil
 }

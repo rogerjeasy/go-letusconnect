@@ -70,9 +70,11 @@ func (h *UserConnectionHandler) GetUserConnectionsByUID(c *fiber.Ctx) error {
 	frontend := mappers.MapConnectionsGoToFrontend(*connections)
 	connectionsMap := frontend["connections"].(map[string]interface{})
 	pendingRequestMap := frontend["pendingRequests"].(map[string]interface{})
+	sentRequestMap := frontend["sentRequests"].(map[string]interface{})
 	return c.JSON(fiber.Map{
 		"connections":     connectionsMap,
 		"pendingRequests": pendingRequestMap,
+		"sentRequests":    sentRequestMap,
 	})
 }
 
@@ -300,5 +302,26 @@ func (h *UserConnectionHandler) CancelSentRequest(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Connection request cancelled successfully",
+	})
+}
+
+func (h *UserConnectionHandler) GetUserConnectionCount(c *fiber.Ctx) error {
+
+	uid := c.Params("uid")
+	if uid == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "User ID is required",
+		})
+	}
+
+	count, err := h.connectionService.GetUserConnectionCount(context.Background(), uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch connection count",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"count": count,
 	})
 }
