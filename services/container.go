@@ -22,6 +22,7 @@ type ServiceContainer struct {
 	ChatGPTService        *ChatGPTService
 	PDFService            *PDFService
 	UploadPDFService      *UploadPDFService
+	WebSocketService      *WebSocketService
 	// Add other services as needed
 }
 
@@ -45,6 +46,7 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 		PDFService:          pdfService,
 		ChatGPTService:      NewChatGPTService(firestoreClient, pdfService),
 		UploadPDFService:    uploadPdfService,
+		WebSocketService:    NewWebSocketService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services
 	}

@@ -36,7 +36,7 @@ func setupDirectMessageRoutes(api fiber.Router, sc *services.ServiceContainer) e
 	// messages.Post("/group", handlers.SendGroupMessage)
 	messages.Get("/direct", handler.GetDirectMessages)
 	messages.Get("/unread", handlers.GetUnreadMessagesCount)
-	messages.Post("/mark-as-read", handlers.MarkMessagesAsRead)
+	messages.Patch("/mark-as-read", handlers.MarkMessagesAsRead)
 
 	return nil
 }
