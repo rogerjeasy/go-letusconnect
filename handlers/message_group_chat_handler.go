@@ -529,6 +529,54 @@ func (h *GroupChatHandler) CountUnreadMessagesHandler(c *fiber.Ctx) error {
 	})
 }
 
+// CountUnreadGroupMessagesHandler handles the request to count all unread messages across all group chats for a user
+func (h *GroupChatHandler) CountUnreadGroupMessagesFromAllChatHandler(c *fiber.Ctx) error {
+	// Extract the Authorization token
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	// Validate token and get user ID
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	// Call the service to count all unread messages
+	ctx := context.Background()
+	unreadCount, err := services.CountUnreadGroupMessagesFromAllChatService(ctx, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to count unread messages: %v", err),
+		})
+	}
+
+	// Trigger Pusher event for updating total unread counts
+	notificationChannel := "group-total-unread-" + userID
+	err = services.PusherClient.Trigger(
+		notificationChannel,
+		"update-total-unread",
+		map[string]interface{}{
+			"totalUnreadCount": unreadCount,
+		},
+	)
+	if err != nil {
+		log.Printf("Pusher trigger failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to trigger total unread count event",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"unreadCount": unreadCount,
+	})
+}
+
 func (h *GroupChatHandler) RemoveParticipantsFromGroupChatHandler(c *fiber.Ctx) error {
 	// Extract the Authorization token
 	token := c.Get("Authorization")

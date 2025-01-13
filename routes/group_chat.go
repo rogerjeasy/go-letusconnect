@@ -37,6 +37,7 @@ func setupGroupChatRoutes(api fiber.Router, sc *services.ServiceContainer) error
 	groupChats.Post("/messages", handler.SendMessageHandler)
 	groupChats.Patch("/:groupChatId/mark-messages-read", handler.MarkMessagesAsReadHandler)
 	groupChats.Get("/unread-messages/count", handler.CountUnreadMessagesHandler)
+	groupChats.Get("/unread/total", handler.CountUnreadGroupMessagesFromAllChatHandler)
 	groupChats.Post("/:groupChatId/remove-participants", handler.RemoveParticipantsFromGroupChatHandler)
 	groupChats.Post("/reply-message", handler.ReplyToMessageHandler)
 	groupChats.Post("/attach-files", handler.AttachFilesToMessageHandler)

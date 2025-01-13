@@ -490,6 +490,55 @@ func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, use
 	return unreadCount, nil
 }
 
+func CountUnreadGroupMessagesFromAllChatService(ctx context.Context, userID string) (int, error) {
+	// Validate required parameter
+	if userID == "" {
+		return 0, fmt.Errorf("userID is required")
+	}
+
+	// Query all group chats
+	query := FirestoreClient.Collection("group_chats")
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch group chats: %v", err)
+	}
+
+	totalUnreadCount := 0
+
+	// Iterate through each group chat
+	for _, doc := range docs {
+		data := doc.Data()
+		if data == nil {
+			continue
+		}
+
+		// Check if user is a participant in this group chat
+		participants := mappers.GetParticipantsGoArray(data, "participants")
+		isParticipant := false
+		for _, participant := range participants {
+			if participant.UserID == userID {
+				isParticipant = true
+				break
+			}
+		}
+
+		// Skip if user is not a participant
+		if !isParticipant {
+			continue
+		}
+
+		// Get messages and count unread ones
+		messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
+		for _, message := range messages {
+			if read, ok := message.ReadStatus[userID]; !ok || !read {
+				totalUnreadCount++
+			}
+		}
+	}
+
+	return totalUnreadCount, nil
+}
+
 func RemoveParticipantsFromGroupChatService(ctx context.Context, groupChatID, ownerID string, participantIDs []string) error {
 	if groupChatID == "" {
 		return fmt.Errorf("groupChatID is required")
