@@ -41,7 +41,6 @@ func (s *FAQService) CreateFAQ(ctx context.Context, faq models.FAQ, username str
 	faq.UpdatedAt = now
 	faq.CreatedBy = uid
 	faq.Username = username
-	faq.Status = "active"
 
 	// Convert to Firestore format
 	firestoreData := mappers.MapFAQGoToFirestore(faq)
