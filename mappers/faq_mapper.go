@@ -1,28 +1,29 @@
 package mappers
 
 import (
-	"time"
-
 	"github.com/rogerjeasy/go-letusconnect/models"
 )
 
-// FrontendToFAQ maps frontend data to the FAQ struct
-func FrontendToFAQ(data map[string]interface{}, username, createdBy string) *models.FAQ {
-	return &models.FAQ{
-		Username:  username,
-		Question:  data["question"].(string),
-		Response:  data["response"].(string),
-		Category:  data["category"].(string),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		CreatedBy: createdBy,
-		Status:    "active",
+// MapFAQFrontendToGo maps frontend FAQ data to Go struct format
+func MapFAQFrontendToGo(data map[string]interface{}) models.FAQ {
+	return models.FAQ{
+		ID:        getStringValue(data, "id"),
+		Username:  getStringValue(data, "username"),
+		Question:  getStringValue(data, "question"),
+		Response:  getStringValue(data, "response"),
+		CreatedAt: getTimeValue(data, "createdAt"),
+		UpdatedAt: getTimeValue(data, "updatedAt"),
+		CreatedBy: getStringValue(data, "createdBy"),
+		UpdatedBy: getStringValue(data, "updatedBy"),
+		Status:    getStringValue(data, "status"),
+		Category:  getStringValue(data, "category"),
 	}
 }
 
-// FAQToFirestore maps the FAQ struct to Firestore-compatible format
-func FAQToFirestore(faq *models.FAQ) map[string]interface{} {
+// MapFAQGoToFirestore maps Go struct FAQ data to Firestore format
+func MapFAQGoToFirestore(faq models.FAQ) map[string]interface{} {
 	return map[string]interface{}{
+		"id":         faq.ID,
 		"username":   faq.Username,
 		"question":   faq.Question,
 		"response":   faq.Response,
@@ -35,43 +36,34 @@ func FAQToFirestore(faq *models.FAQ) map[string]interface{} {
 	}
 }
 
-// FirestoreToFAQ maps Firestore data to the FAQ struct
-func FirestoreToFAQ(data map[string]interface{}) *models.FAQ {
-	// Safe type assertions with fallback values to prevent panic
-	id, _ := data["id"].(string)
-	username, _ := data["username"].(string)
-	question, _ := data["question"].(string)
-	response, _ := data["response"].(string)
-	createdBy, _ := data["created_by"].(string)
-	updatedBy, _ := data["updated_by"].(string)
-	status, _ := data["status"].(string)
-	category, _ := data["category"].(string)
-
-	// Safe handling for time fields
-	var createdAt, updatedAt time.Time
-
-	if createdAtRaw, ok := data["created_at"].(time.Time); ok {
-		createdAt = createdAtRaw
-	} else {
-		createdAt = time.Now()
+// MapFAQFirestoreToGo maps Firestore FAQ data to Go struct format
+func MapFAQFirestoreToGo(data map[string]interface{}) models.FAQ {
+	return models.FAQ{
+		ID:        getStringValue(data, "id"),
+		Username:  getStringValue(data, "username"),
+		Question:  getStringValue(data, "question"),
+		Response:  getStringValue(data, "response"),
+		CreatedAt: getFirestoreTimeToGoTime(data["created_at"]),
+		UpdatedAt: getFirestoreTimeToGoTime(data["updated_at"]),
+		CreatedBy: getStringValue(data, "created_by"),
+		UpdatedBy: getStringValue(data, "updated_by"),
+		Status:    getStringValue(data, "status"),
+		Category:  getStringValue(data, "category"),
 	}
+}
 
-	if updatedAtRaw, ok := data["updated_at"].(time.Time); ok {
-		updatedAt = updatedAtRaw
-	} else {
-		updatedAt = time.Now()
-	}
-
-	return &models.FAQ{
-		ID:        id,
-		Username:  username,
-		Question:  question,
-		Response:  response,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-		CreatedBy: createdBy,
-		UpdatedBy: updatedBy,
-		Status:    status,
-		Category:  category,
+// MapFAQGoToFrontend maps Go struct FAQ data to frontend format
+func MapFAQGoToFrontend(faq models.FAQ) map[string]interface{} {
+	return map[string]interface{}{
+		"id":        faq.ID,
+		"username":  faq.Username,
+		"question":  faq.Question,
+		"response":  faq.Response,
+		"createdAt": faq.CreatedAt,
+		"updatedAt": faq.UpdatedAt,
+		"createdBy": faq.CreatedBy,
+		"updatedBy": faq.UpdatedBy,
+		"status":    faq.Status,
+		"category":  faq.Category,
 	}
 }

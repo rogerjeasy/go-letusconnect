@@ -19,13 +19,14 @@ func setupFAQRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 		return fmt.Errorf("faq service cannot be nil")
 	}
 
-	handler := handlers.NewFAQHandler(sc.FAQService)
+	handler := handlers.NewFAQHandler(sc.FAQService, sc.UserService)
 	if handler == nil {
 		return fmt.Errorf("failed to create faq handler")
 	}
 
 	faqs := api.Group("/faqs")
 	faqs.Get("/", handler.GetAllFAQs)
+	faqs.Get("/:id", handler.GetFAQByID)
 	faqs.Post("/", handler.CreateFAQ)
 	faqs.Put("/:id", handler.UpdateFAQ)
 	faqs.Delete("/:id", handler.DeleteFAQ)

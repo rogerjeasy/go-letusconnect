@@ -8,7 +8,6 @@ import (
 	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
-	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
 	"google.golang.org/api/iterator"
 )
@@ -18,22 +17,31 @@ type FAQHandler struct {
 	UserService *services.UserService
 }
 
-func NewFAQHandler(faqService *services.FAQService) *FAQHandler {
+// NewFAQHandler creates a new instance of FAQHandler with all required services
+func NewFAQHandler(faqService *services.FAQService, userService *services.UserService) *FAQHandler {
+	if faqService == nil {
+		panic("faqService cannot be nil")
+	}
+	if userService == nil {
+		panic("userService cannot be nil")
+	}
+
 	return &FAQHandler{
-		FAQService: faqService,
+		FAQService:  faqService,
+		UserService: userService,
 	}
 }
 
 // CreateFAQ handles the creation of a new FAQ entry
 func (f *FAQHandler) CreateFAQ(c *fiber.Ctx) error {
-	// Extract the Authorization token
+	// Extract and validate token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Authorization token is required",
 		})
 	}
-	// Validate token and get UID
+
 	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -41,30 +49,31 @@ func (f *FAQHandler) CreateFAQ(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get user details
 	userDetails, err := f.UserService.GetUserByUID(uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user details",
+			"error":   "Failed to fetch user details",
+			"details": err.Error(),
 		})
 	}
 
-	// Extract username string from the map
-	usernameStr, ok := userDetails["username"].(string)
-	if !ok {
+	username, ok := userDetails["username"].(string)
+	if !ok || username == "" {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Invalid username format",
+			"error": "Invalid or missing username",
 		})
 	}
 
-	// Fetch the user's role list
+	// Validate admin privileges
 	roles, err := f.UserService.GetUserRole(uid)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Failed to fetch user roles",
+			"error":   "Failed to fetch user roles",
+			"details": err.Error(),
 		})
 	}
 
-	// Check if the user has the "admin" role
 	isAdmin := false
 	for _, role := range roles {
 		if role == "admin" {
@@ -72,67 +81,42 @@ func (f *FAQHandler) CreateFAQ(c *fiber.Ctx) error {
 			break
 		}
 	}
-
 	if !isAdmin {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Admin privileges required",
 		})
 	}
 
-	// Parse the request payload
+	// Parse request body
 	var requestData map[string]interface{}
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
+			"error":   "Invalid request payload",
+			"details": err.Error(),
 		})
 	}
+
+	// Map frontend data to FAQ struct
+	faq := mappers.MapFAQFrontendToGo(requestData)
 
 	ctx := context.Background()
 
-	// Map request data to FAQ model
-	newFAQ := mappers.FrontendToFAQ(requestData, usernameStr, uid)
-
-	// Save to Firestore
-	docRef, _, err := services.FirestoreClient.Collection("faqs").Add(ctx, mappers.FAQToFirestore(newFAQ))
+	// Create FAQ using service
+	newFAQ, err := f.FAQService.CreateFAQ(ctx, faq, username, uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create FAQ",
+			"error":   "Failed to create FAQ",
+			"details": err.Error(),
 		})
 	}
 
-	// Set the ID of the new FAQ
-	newFAQ.ID = docRef.ID
+	// Convert FAQ to frontend format for response
+	response := mappers.MapFAQGoToFrontend(*newFAQ)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "FAQ created successfully",
-		"data":    newFAQ,
+		"data":    response,
 	})
-}
-
-// GetAllFAQs retrieves all FAQs
-func (f *FAQHandler) GetAllFAQs(c *fiber.Ctx) error {
-	ctx := context.Background()
-	iter := services.FirestoreClient.Collection("faqs").Documents(ctx)
-	defer iter.Stop()
-
-	var faqs []models.FAQ
-
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch FAQs"})
-		}
-
-		data := doc.Data()
-		data["id"] = doc.Ref.ID
-		faq := mappers.FirestoreToFAQ(data)
-		faqs = append(faqs, *faq)
-	}
-
-	return c.Status(fiber.StatusOK).JSON(faqs)
 }
 
 // UpdateFAQ updates an existing FAQ (admin only)
@@ -205,6 +189,7 @@ func (f *FAQHandler) UpdateFAQ(c *fiber.Ctx) error {
 	updates := []firestore.Update{
 		{Path: "question", Value: requestData["question"]},
 		{Path: "response", Value: requestData["response"]},
+		{Path: "category", Value: requestData["category"]},
 		{Path: "updated_by", Value: username},
 		{Path: "updated_at", Value: time.Now()},
 	}
@@ -283,4 +268,65 @@ func (f *FAQHandler) DeleteFAQ(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "FAQ deleted successfully",
 	})
+}
+
+func (f *FAQHandler) GetAllFAQs(c *fiber.Ctx) error {
+	ctx := context.Background()
+	iter := services.FirestoreClient.Collection("faqs").Documents(ctx)
+	defer iter.Stop()
+
+	faqs := make([]map[string]interface{}, 0)
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to fetch FAQs",
+			})
+		}
+
+		data := doc.Data()
+		data["id"] = doc.Ref.ID
+
+		// Convert Firestore data to Go struct
+		faq := mappers.MapFAQFirestoreToGo(data)
+
+		// Convert Go struct to frontend format
+		frontendFAQ := mappers.MapFAQGoToFrontend(faq)
+		faqs = append(faqs, frontendFAQ)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(faqs)
+}
+
+func (f *FAQHandler) GetFAQByID(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "FAQ ID is required",
+		})
+	}
+
+	ctx := context.Background()
+
+	faq, err := f.FAQService.GetFAQByID(ctx, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "FAQ not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "FAQ not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to fetch FAQ",
+			"details": err.Error(),
+		})
+	}
+
+	// Convert FAQ to frontend format
+	response := mappers.MapFAQGoToFrontend(*faq)
+
+	return c.Status(fiber.StatusOK).JSON(response)
 }
