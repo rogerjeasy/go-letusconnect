@@ -190,6 +190,7 @@ func (f *FAQHandler) UpdateFAQ(c *fiber.Ctx) error {
 		{Path: "question", Value: requestData["question"]},
 		{Path: "response", Value: requestData["response"]},
 		{Path: "category", Value: requestData["category"]},
+		{Path: "status", Value: requestData["status"]},
 		{Path: "updated_by", Value: username},
 		{Path: "updated_at", Value: time.Now()},
 	}
