@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rogerjeasy/go-letusconnect/middleware"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
@@ -20,7 +19,7 @@ func SetupAllRoutes(app *fiber.App, sc *services.ServiceContainer) error {
 	api := app.Group("/api/v1")
 
 	// Apply common middleware
-	api.Use(middleware.ConfigureCORS())
+	// api.Use(middleware.ConfigureCORS())
 
 	routeSetups := []struct {
 		name string
