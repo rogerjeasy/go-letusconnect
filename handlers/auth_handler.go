@@ -259,28 +259,72 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 	})
 }
 
-// Login authenticates the user and returns a JWT token
 func (a *AuthHandler) Login(c *fiber.Ctx) error {
-	var user models.User
+	var loginData models.LoginCredentials
 
-	// Parse request body into User model
-	if err := c.BodyParser(&user); err != nil {
+	// Parse request body into LoginCredentials model
+	if err := c.BodyParser(&loginData); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
 
 	// Validate input fields
-	if strings.TrimSpace(user.Email) == "" || strings.TrimSpace(user.Password) == "" {
+	if strings.TrimSpace(loginData.EmailOrUsername) == "" || strings.TrimSpace(loginData.Password) == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email and password are required",
+			"error": "Email/Username and password are required",
+		})
+	}
+
+	// Initialize context
+	ctx := context.Background()
+
+	// First, try to find the user by email or username
+	var userQuery firestore.Query
+	emailOrUsername := strings.TrimSpace(loginData.EmailOrUsername)
+
+	// Check if input is an email
+	if strings.Contains(emailOrUsername, "@") {
+		userQuery = services.FirestoreClient.Collection("users").Where("email", "==", emailOrUsername)
+	} else {
+		userQuery = services.FirestoreClient.Collection("users").Where("username", "==", emailOrUsername)
+	}
+
+	// Execute the query
+	iter := userQuery.Documents(ctx)
+	defer iter.Stop()
+
+	doc, err := iter.Next()
+	if err == iterator.Done {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid credentials",
+		})
+	}
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to retrieve user data",
+		})
+	}
+
+	var dbUser map[string]interface{}
+	if err := doc.DataTo(&dbUser); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to process user data",
+		})
+	}
+
+	// Get the email for Firebase authentication
+	userEmail, ok := dbUser["email"].(string)
+	if !ok {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Invalid user data",
 		})
 	}
 
 	// Prepare request payload for Firebase Authentication REST API
 	payload := map[string]string{
-		"email":             user.Email,
-		"password":          user.Password,
+		"email":             userEmail,
+		"password":          loginData.Password,
 		"returnSecureToken": "true",
 	}
 
@@ -295,36 +339,17 @@ func (a *AuthHandler) Login(c *fiber.Ctx) error {
 	resp, err := http.Post(config.FirebaseSignInURL, "application/json", bytes.NewReader(payloadBytes))
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid email or password",
+			"error": "Invalid credentials",
 		})
 	}
 	defer resp.Body.Close()
 
-	// Parse the response
+	// Parse the Firebase response
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
 	var firebaseResponse map[string]interface{}
 	if err := json.Unmarshal(bodyBytes, &firebaseResponse); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to process Firebase response",
-		})
-	}
-
-	// Retrieve user details from Firestore
-	ctx := context.Background()
-	userQuery := services.FirestoreClient.Collection("users").Where("email", "==", user.Email).Documents(ctx)
-	defer userQuery.Stop()
-
-	doc, err := userQuery.Next()
-	if err == iterator.Done {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
-	}
-
-	var dbUser map[string]interface{}
-	if err := doc.DataTo(&dbUser); err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve user data",
+			"error": "Failed to process authentication response",
 		})
 	}
 
@@ -348,22 +373,19 @@ func (a *AuthHandler) Login(c *fiber.Ctx) error {
 		Secure:   true,
 	})
 
+	// Update user's online status
 	backendUser.IsOnline = true
-
-	// Convert the updated User struct to Firestore-compatible format
 	backendUpdates := mappers.MapUserFrontendToBackend(&backendUser)
 
 	// Update Firestore document
-	docRef := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID)
-	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
+	_, err = doc.Ref.Set(ctx, backendUpdates, firestore.MergeAll)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update user",
+			"error": "Failed to update user status",
 		})
 	}
 
 	// Map backend user to frontend format
-
 	frontendUser := mappers.MapUserToFrontend(&backendUser)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{

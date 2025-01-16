@@ -123,6 +123,6 @@ type WorkExperience struct {
 }
 
 type LoginCredentials struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	EmailOrUsername string `json:"emailOrUsername" validate:"required,min=3,max=100"`
+	Password        string `json:"password" validate:"required,min=8,max=100"`
 }
