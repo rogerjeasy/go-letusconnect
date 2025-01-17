@@ -27,7 +27,7 @@ func setupUserRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 	users.Get("/completion", handler.GetProfileCompletion)
 	users.Get("/:uid", handler.GetUser)
 	users.Get("/", handler.GetAllUsers)
-	users.Put("/:uid", handler.UpdateUser)
+	users.Put("/", handler.UpdateUser)
 
 	return nil
 }

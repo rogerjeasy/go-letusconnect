@@ -33,25 +33,10 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	// Validate token
-	requesterUID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid token",
-		})
-	}
-
-	// Get User UID from parameters
-	uid := c.Params("uid")
-	if uid == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User UID is required",
-		})
-	}
-
-	// Ensure the requester is authorized to update the user
-	if requesterUID != uid {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "You are not authorized to update this user",
 		})
 	}
 
