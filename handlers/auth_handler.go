@@ -16,8 +16,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"firebase.google.com/go/auth"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/rogerjeasy/go-letusconnect/config"
@@ -123,105 +121,93 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	user := mappers.MapFrontendToUser(requestData)
+	providerType := models.AuthProvider(requestData["provider"].(string))
+	if providerType == "" {
+		providerType = models.EmailPassword
+	}
 
-	// Validate required fields
-	if strings.TrimSpace(user.Username) == "" {
+	providerData, err := extractProviderData(providerType, requestData)
+	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Username is required",
-		})
-	}
-	if strings.TrimSpace(user.Email) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email is required",
-		})
-	}
-	if strings.TrimSpace(user.Password) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Password is required",
-		})
-	}
-	if strings.TrimSpace(user.Program) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Program is required",
+			"error": err.Error(),
 		})
 	}
 
-	// Validate uniqueness of username and email in Firestore
+	// Validate common required fields
+	if err := validateCommonFields(providerData); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	ctx := context.Background()
 
-	// Check for existing user with the same email
-	emailQuery := services.FirestoreClient.Collection("users").Where("email", "==", user.Email).Documents(ctx)
-	defer emailQuery.Stop()
-	if _, err := emailQuery.Next(); err != iterator.Done {
+	// Check for existing user
+	if err := checkExistingUser(ctx, providerData); err != nil {
 		return c.Status(http.StatusConflict).JSON(fiber.Map{
-			"error": "Email already in use",
+			"error": err.Error(),
 		})
 	}
 
-	// Check for existing user with the same username
-	usernameQuery := services.FirestoreClient.Collection("users").Where("username", "==", user.Username).Documents(ctx)
-	defer usernameQuery.Stop()
-	if _, err := usernameQuery.Next(); err != iterator.Done {
-		return c.Status(http.StatusConflict).JSON(fiber.Map{
-			"error": "Username already in use",
-		})
-	}
-
-	randomAvatarURL := generateRandomAvatar()
-
-	// Upload the generated avatar to Cloudinary
-	cld := services.CloudinaryClient
-	uploadResult, err := cld.Upload.Upload(ctx, randomAvatarURL, uploader.UploadParams{
-		PublicID: fmt.Sprintf("users/%s/avatar", user.Username),
-		Folder:   "users/avatars",
-	})
-	if err != nil {
-		log.Printf("Error uploading avatar to Cloudinary: %v", err)
-		user.ProfilePicture = randomAvatarURL
+	var profilePictureURL string
+	if providerData.PhotoURL != "" {
+		profilePictureURL = providerData.PhotoURL
 	} else {
-		user.ProfilePicture = uploadResult.SecureURL
+		profilePictureURL = generateRandomAvatar()
 	}
 
-	// Create user in Firebase Authentication
-	authUser, err := services.FirebaseAuth.CreateUser(ctx, (&auth.UserToCreate{}).
-		Email(user.Email).
-		Password(user.Password))
+	// Upload profile picture to Cloudinary
+	uploadedURL, err := uploadProfilePicture(ctx, profilePictureURL, providerData.Username)
 	if err != nil {
-		log.Printf("Error creating user in Firebase Auth: %v", err)
+		log.Printf("Error uploading to Cloudinary: %v", err)
+		uploadedURL = profilePictureURL
+	}
+
+	// Create or get Firebase user
+	authUser, err := createFirebaseUser(ctx, providerData)
+	if err != nil {
+		log.Printf("Error with Firebase auth: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create user in Firebase Authentication",
+			"error": "Failed to authenticate user",
 		})
 	}
 
-	// Add additional fields
-	user.UID = authUser.UID
+	// Create user model
 	currentTime := time.Now()
 	customFormat := "Monday, Jan 2, 2006 at 3:04 PM"
-	user.AccountCreatedAt = FormatTime(currentTime, customFormat)
-	user.IsActive = true
-	user.IsVerified = false
-	user.Role = []string{"user"}
-	user.Password = ""
-	user.IsOnline = true
 
-	// Convert the user struct to Firestore-compatible (snake_case) format
+	user := models.User{
+		UID:              authUser.UID,
+		Username:         providerData.Username,
+		FirstName:        providerData.FirstName,
+		LastName:         providerData.LastName,
+		Email:            providerData.Email,
+		ProfilePicture:   uploadedURL,
+		Program:          providerData.Program,
+		AccountCreatedAt: FormatTime(currentTime, customFormat),
+		IsActive:         true,
+		IsVerified:       providerType != models.EmailPassword, // Auto-verify OAuth users
+		Role:             []string{"user"},
+		IsOnline:         true,
+		Bio:              "",
+		PhoneNumber:      "",
+		GraduationYear:   0,
+		Interests:        []string{},
+		Skills:           []string{},
+		Languages:        []string{},
+		Projects:         []string{},
+		Certifications:   []string{},
+		IsPrivate:        false,
+	}
+
+	// Convert to backend format and save to Firestore
 	backendUser := mappers.MapUserFrontendToBackend(&user)
-
-	// Save user to Firestore
 	_, _, err = services.FirestoreClient.Collection("users").Add(ctx, backendUser)
 	if err != nil {
-		log.Printf("Error saving user to Firestore: %v", err)
+		log.Printf("Error saving to Firestore: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to save user",
 		})
-	}
-
-	// Send welcome email
-	err = SendWelcomeEmail(user.Email, user.Username, "")
-	if err != nil {
-		log.Printf("Error sending welcome email: %v", err)
-		// Don't fail the registration process if email sending fails
 	}
 
 	// Generate JWT token
@@ -232,7 +218,7 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	// Set JWT token as a cookie
+	// Set JWT cookie
 	c.Cookie(&fiber.Cookie{
 		Name:     "jwt",
 		Value:    token,
@@ -241,17 +227,29 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 		Secure:   true,
 	})
 
-	// Map backend user to frontend (camelCase) format
-	frontendUser := mappers.MapUserBackendToFrontend(backendUser)
+	// Send welcome email asynchronously
+	go func() {
+		if err := SendWelcomeEmail(user.Email, user.Username, string(providerType)); err != nil {
+			log.Printf("Error sending welcome email: %v", err)
+		}
+	}()
 
-	// After successfully creating the user
+	// Send new user notification asynchronously
 	go func() {
 		if err := services.SendNewUserNotification(context.Background(), &user); err != nil {
 			log.Printf("Failed to send new user notification: %v", err)
 		}
 	}()
 
-	// Return success response
+	if err != nil {
+		log.Printf("Error creating user in Firebase Auth: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create user in Firebase Authentication",
+		})
+	}
+
+	// Map to frontend format and return response
+	frontendUser := mappers.MapUserBackendToFrontend(backendUser)
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"message": "You have successfully created an account",
 		"user":    frontendUser,

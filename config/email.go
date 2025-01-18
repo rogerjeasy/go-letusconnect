@@ -27,6 +27,13 @@ var (
 	CloudinaryURL string
 	OpenAIKey     string
 	PDFContextURL string
+
+	GoogleClientID string
+	// GoogleClientSecret string
+	GithubClientID     string
+	GithubClientSecret string
+	GoogleCredentials  string
+	AppURL             string
 )
 
 func LoadConfig() {
@@ -60,4 +67,11 @@ func LoadConfig() {
 	// openai
 	OpenAIKey = os.Getenv("OPENAI_API_KEY")
 	PDFContextURL = os.Getenv("PDF_CONTEXT_URL")
+
+	GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")
+	// GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
+	GithubClientID = os.Getenv("GITHUB_CLIENT_ID")
+	GithubClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
+	GoogleCredentials = JsonServiceAccountPath
+	AppURL = os.Getenv("APP_URL")
 }
