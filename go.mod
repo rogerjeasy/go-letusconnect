@@ -5,6 +5,7 @@ go 1.23.3
 require github.com/joho/godotenv v1.5.1
 
 require (
+	github.com/coder/websocket v1.8.12 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/gofiber/websocket/v2 v2.2.1 // indirect
@@ -90,4 +91,5 @@ require (
 	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b2c93a // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
+	nhooyr.io/websocket v1.8.17
 )
