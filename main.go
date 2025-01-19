@@ -9,10 +9,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/config"
+	"github.com/rogerjeasy/go-letusconnect/middleware"
+	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/routes"
 	"github.com/rogerjeasy/go-letusconnect/services"
-
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	// "github.com/joho/godotenv"
 )
 
@@ -30,25 +30,18 @@ func main() {
 	// Initialize Cloudinary
 	services.InitCloudinary()
 
+	// Initialize WebSocket manager
+	wsManager := models.NewManager()
+	go wsManager.Run()
+
 	userService := services.NewUserService(services.FirestoreClient)
 
-	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService)
+	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService, wsManager)
 
 	app := fiber.New()
 
 	// Improved CORS configuration
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://letusconnect.vercel.app, http://localhost:3000",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
-		AllowMethods:     "GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS",
-		AllowCredentials: true,
-		ExposeHeaders:    "Content-Length, Authorization",
-		MaxAge:           86400,
-		AllowOriginsFunc: func(origin string) bool {
-			return origin == "https://letusconnect.vercel.app" ||
-				origin == "http://localhost:3000"
-		},
-	}))
+	app.Use(middleware.ConfigureCORS())
 
 	// routes.SetupAllRoutes(app, serviceContainer)
 

@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
@@ -26,9 +29,63 @@ const (
 	msgCreateSuccess    = "School experience created successfully"
 )
 
+func ValidateToken(tokenString string) (string, error) {
+	if strings.TrimSpace(tokenString) == "" {
+		log.Printf("Empty token received")
+		return "", errors.New("token cannot be empty")
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			log.Printf("Invalid signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return jwtSecretKey, nil
+	})
+
+	if err != nil {
+		log.Printf("Token parsing error: %v", err)
+		return "", fmt.Errorf("failed to parse token: %v", err)
+	}
+
+	if !token.Valid {
+		log.Printf("Token is invalid")
+		return "", errors.New("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Printf("Failed to extract token claims")
+		return "", errors.New("invalid token claims")
+	}
+
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < time.Now().Unix() {
+			log.Printf("Token expired at %v", time.Unix(int64(exp), 0))
+			return "", errors.New("token has expired")
+		}
+	} else {
+		log.Printf("Token missing expiration claim")
+		return "", errors.New("invalid token: missing expiration")
+	}
+
+	uid, ok := claims["uid"].(string)
+	if !ok {
+		log.Printf("Missing or invalid UID in token claims")
+		return "", errors.New("missing or invalid UID in token")
+	}
+
+	if strings.TrimSpace(uid) == "" {
+		log.Printf("Empty UID in token claims")
+		return "", errors.New("empty UID in token")
+	}
+
+	return uid, nil
+}
+
 // extractAndValidateToken extracts and validates the authorization token
 // Usage example: uid, err := extractAndValidateToken(c)
-func extractAndValidateToken(c *fiber.Ctx) (string, error) {
+func ExtractAndValidateToken(c *fiber.Ctx) (string, error) {
 	token := c.Get("Authorization")
 	if token == "" {
 		return "", c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

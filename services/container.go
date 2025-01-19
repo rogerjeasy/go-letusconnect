@@ -3,6 +3,7 @@ package services
 import (
 	"cloud.google.com/go/firestore"
 	"github.com/rogerjeasy/go-letusconnect/config"
+	"github.com/rogerjeasy/go-letusconnect/models"
 )
 
 type ServiceContainer struct {
@@ -22,13 +23,15 @@ type ServiceContainer struct {
 	ChatGPTService        *ChatGPTService
 	PDFService            *PDFService
 	UploadPDFService      *UploadPDFService
-	WebSocketService      *WebSocketService
+	// WebSocketService      *WebSocketService
+	WebSocketService *WebSocketService
 	// Add other services as needed
 }
 
-func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserService) *ServiceContainer {
+func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserService, wsManager *models.Manager) *ServiceContainer {
 	pdfService := NewPDFService(firestoreClient, config.PDFContextURL)
 	uploadPdfService, _ := NewUploadPDFService(firestoreClient, config.CloudinaryURL)
+	ws := NewWebSocketService(wsManager)
 
 	return &ServiceContainer{
 		UserService:         NewUserService(firestoreClient),
@@ -46,7 +49,8 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 		PDFService:          pdfService,
 		ChatGPTService:      NewChatGPTService(firestoreClient, pdfService),
 		UploadPDFService:    uploadPdfService,
-		WebSocketService:    NewWebSocketService(firestoreClient),
+		WebSocketService:    ws,
+		// WebSocketService:    NewWebSocketService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services
 	}
