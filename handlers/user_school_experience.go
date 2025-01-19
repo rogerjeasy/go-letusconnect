@@ -33,7 +33,7 @@ type schoolExperienceDoc struct {
 func CreateSchoolExperience(c *fiber.Ctx) error {
 
 	// Extract and validate token
-	uid, err := extractAndValidateToken(c)
+	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func GetSchoolExperience(c *fiber.Ctx) error {
 // UpdateUniversity updates a specific university in the user's education list
 func UpdateUniversity(c *fiber.Ctx) error {
 	// Extract and validate token
-	uid, err := extractAndValidateToken(c)
+	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func UpdateUniversity(c *fiber.Ctx) error {
 
 func AddUniversity(c *fiber.Ctx) error {
 	// Extract and validate token
-	uid, err := extractAndValidateToken(c)
+	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func AddUniversity(c *fiber.Ctx) error {
 
 func AddListOfUniversities(c *fiber.Ctx) error {
 	// Extract and validate token
-	uid, err := extractAndValidateToken(c)
+	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
 		return err
 	}
