@@ -1188,3 +1188,94 @@ func (h *GroupChatHandler) UpdateGroupSettingsHandler(c *fiber.Ctx) error {
 
 // 	return c.JSON(fiber.Map{"message": "Participant block/unblock status updated successfully"})
 // }
+
+func (h *GroupChatHandler) DeleteGroupChat(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	chatID := c.Params("id")
+	if chatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Group chat ID is required",
+		})
+	}
+
+	err = services.DeleteGroupChatService(context.Background(), chatID, uid)
+	if err != nil {
+		if strings.Contains(err.Error(), "unauthorized") {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Group chat deleted successfully",
+	})
+}
+
+func (h *GroupChatHandler) DeleteMultipleGroupChats(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	var requestData struct {
+		ChatIDs []string `json:"chatIds"`
+	}
+	if err := c.BodyParser(&requestData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	if len(requestData.ChatIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No chat IDs provided",
+		})
+	}
+
+	err = services.DeleteMultipleGroupChatsService(context.Background(), requestData.ChatIDs, uid)
+	if err != nil {
+		if strings.Contains(err.Error(), "Unauthorized") || strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Group chats deleted successfully",
+	})
+}

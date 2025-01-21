@@ -50,6 +50,10 @@ func setupGroupChatRoutes(api fiber.Router, sc *services.ServiceContainer) error
 	groupChats.Post("/mute-participant", handler.MuteParticipantHandler)
 	groupChats.Get("/online-status/:participantId", handler.UpdateLastSeenHandler)
 
+	// delete group chat
+	groupChats.Delete("/:id", handler.DeleteGroupChat)
+	groupChats.Delete("/delete-multiple", handler.DeleteMultipleGroupChats)
+
 	// Update Group Settings
 	groupChats.Post("/update-settings", handler.UpdateGroupSettingsHandler)
 
