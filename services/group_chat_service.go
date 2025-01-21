@@ -1428,3 +1428,105 @@ func UpdateGroupSettingsService(ctx context.Context, groupChatID, userID string,
 
 // 	return nil
 // }
+
+// DeleteGroupChatService deletes a single group chat
+func DeleteGroupChatService(ctx context.Context, chatID string, userID string) error {
+	doc, err := FirestoreClient.Collection("group_chats").Doc(chatID).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return fmt.Errorf("group chat not found")
+		}
+		return fmt.Errorf("failed to fetch group chat: %v", err)
+	}
+
+	data := doc.Data()
+	participants, ok := data["participants"].([]interface{})
+	if !ok {
+		return fmt.Errorf("invalid participants data")
+	}
+
+	isOwner := false
+	for _, p := range participants {
+		participant, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if participant["user_id"] == userID && participant["role"] == "owner" {
+			isOwner = true
+			break
+		}
+	}
+
+	if !isOwner {
+		return fmt.Errorf("unauthorized: only the owner can delete the group chat")
+	}
+
+	_, err = FirestoreClient.Collection("group_chats").Doc(chatID).Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete group chat: %v", err)
+	}
+
+	return nil
+}
+
+// DeleteMultipleGroupChatsService deletes multiple group chats
+func DeleteMultipleGroupChatsService(ctx context.Context, chatIDs []string, userID string) error {
+	batch := FirestoreClient.Batch()
+	unauthorized := make([]string, 0)
+	notFound := make([]string, 0)
+
+	for _, chatID := range chatIDs {
+		doc, err := FirestoreClient.Collection("group_chats").Doc(chatID).Get(ctx)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				notFound = append(notFound, chatID)
+				continue
+			}
+			return fmt.Errorf("failed to fetch group chat %s: %v", chatID, err)
+		}
+
+		data := doc.Data()
+		participants, ok := data["participants"].([]interface{})
+		if !ok {
+			return fmt.Errorf("invalid participants data in chat %s", chatID)
+		}
+
+		isOwner := false
+		for _, p := range participants {
+			participant, ok := p.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if participant["user_id"] == userID && participant["role"] == "owner" {
+				isOwner = true
+				break
+			}
+		}
+
+		if !isOwner {
+			unauthorized = append(unauthorized, chatID)
+			continue
+		}
+
+		batch.Delete(FirestoreClient.Collection("group_chats").Doc(chatID))
+	}
+
+	if len(unauthorized) > 0 || len(notFound) > 0 {
+		var errMsg strings.Builder
+		if len(unauthorized) > 0 {
+			errMsg.WriteString(fmt.Sprintf("Unauthorized to delete chats: %v. ", unauthorized))
+		}
+		if len(notFound) > 0 {
+			errMsg.WriteString(fmt.Sprintf("Chats not found: %v", notFound))
+		}
+		return fmt.Errorf(errMsg.String())
+	}
+
+	// Commit the batch
+	_, err := batch.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete group chats: %v", err)
+	}
+
+	return nil
+}
