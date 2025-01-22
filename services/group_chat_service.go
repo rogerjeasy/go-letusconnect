@@ -102,14 +102,12 @@ func CreateGroupChatService(ctx context.Context, input GroupChatInput) (*models.
 	return &groupChat, nil
 }
 
-// GetGroupChatService fetches a group chat by project ID and returns it in frontend format
-func GetGroupChatService(ctx context.Context, projectId string) (map[string]interface{}, error) {
-	if projectId == "" {
-		return nil, fmt.Errorf("project ID is required")
+func GetGroupChatService(ctx context.Context, groupId string) (map[string]interface{}, error) {
+	if groupId == "" {
+		return nil, fmt.Errorf("group ID is required")
 	}
 
-	// Query Firestore for the group chat where projectId matches
-	query := FirestoreClient.Collection("group_chats").Where("project_id", "==", projectId).Limit(1)
+	query := FirestoreClient.Collection("group_chats").Where("id", "==", groupId).Limit(1)
 	iter := query.Documents(ctx)
 	docSnap, err := iter.Next()
 	if err == iterator.Done {
@@ -119,16 +117,13 @@ func GetGroupChatService(ctx context.Context, projectId string) (map[string]inte
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
 	}
 
-	// Convert to map[string]interface{}
 	data := docSnap.Data()
 	if data == nil {
 		return nil, fmt.Errorf("group chat not found")
 	}
 
-	// Ensure ID is in the data
 	data["id"] = docSnap.Ref.ID
 
-	// Convert Firestore data to frontend format using the mapper
 	frontendData := mappers.MapGroupChatFirestoreToFrontend(data)
 
 	return frontendData, nil

@@ -55,14 +55,14 @@ func setupGroupChatRoutes(api fiber.Router, sc *services.ServiceContainer) error
 	groupChats.Delete("/delete-multiple", handler.DeleteMultipleGroupChats)
 
 	// Update Group Settings
-	groupChats.Post("/update-settings", handler.UpdateGroupSettingsHandler)
+	groupChats.Put("/update-settings/:groupChatId", handler.UpdateGroupSettingsHandler)
 
 	// Archive Group Chat
 	groupChats.Post("/archive", handler.ArchiveGroupChatHandler)
 
 	groupChats.Delete("/:groupChatId/participants/me", handler.LeaveGroupHandler)
 	groupChats.Put("/:groupChatId/participants", handler.AddParticipantsToGroupChatHandler)
-	groupChats.Put("/projects/:projectId/participants", handler.AddParticipantsToGroupChatHandler) // Add participants to a group chat in a project
+	groupChats.Put("/projects/:projectId/participants", handler.AddParticipantsToGroupChatHandler)
 
 	// Polls
 	// groupChats.Post("/create-poll", handlers.CreatePollHandler)

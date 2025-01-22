@@ -106,9 +106,16 @@ func (h *GroupChatHandler) CreateGroupChatF(c *fiber.Ctx) error {
 		})
 	}
 
+	groupChatData, err := services.GetGroupChatService(context.Background(), groupChat.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message":     "Group chat created successfully",
-		"groupChatId": groupChat.ID,
+		"message": "Group chat created successfully",
+		"data":    groupChatData,
 	})
 }
 
@@ -1116,7 +1123,6 @@ func (h *GroupChatHandler) ReportMessageHandler(c *fiber.Ctx) error {
 
 // UpdateGroupSettingsHandler handles the HTTP request to update group settings
 func (h *GroupChatHandler) UpdateGroupSettingsHandler(c *fiber.Ctx) error {
-	// Extract the Authorization token
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -1124,7 +1130,6 @@ func (h *GroupChatHandler) UpdateGroupSettingsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate token and get user ID
 	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -1132,34 +1137,36 @@ func (h *GroupChatHandler) UpdateGroupSettingsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the request payload
-	var requestData struct {
-		GroupChatID   string               `json:"groupChatId"`
-		GroupSettings models.GroupSettings `json:"groupSettings"`
+	groupChatId := c.Params("groupChatId")
+	if groupChatId == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "groupChatId is required",
+		})
 	}
+
+	var requestData map[string]interface{}
 	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
 
-	// Validate required fields
-	if requestData.GroupChatID == "" {
+	if err := c.BodyParser(&requestData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "groupChatId is required",
+			"error": "Invalid request payload",
 		})
 	}
 
-	// Call the service to update the group settings
+	requestDataGo := mappers.MapGroupSettingsFrontendToGo(requestData)
+
 	ctx := context.Background()
-	err = services.UpdateGroupSettingsService(ctx, requestData.GroupChatID, userID, requestData.GroupSettings)
+	err = services.UpdateGroupSettingsService(ctx, groupChatId, userID, requestDataGo)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to update group settings: %v", err),
 		})
 	}
 
-	// Respond with success
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Group settings updated successfully",
 	})
