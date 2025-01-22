@@ -16,15 +16,6 @@ func SetupRoutes(router fiber.Router, notificationService *services.Notification
 	workExperiences.Get("/", handlers.GetUserWorkExperience)
 	workExperiences.Delete("/:id", handlers.DeleteUserWorkExperience)
 
-	// User School Experience Routes
-	schoolExperiences := router.Group("/school-experiences")
-	schoolExperiences.Post("/", handlers.CreateSchoolExperience)
-	schoolExperiences.Get("/", handlers.GetSchoolExperience)
-	schoolExperiences.Put("/universities/:universityID", handlers.UpdateUniversity)
-	schoolExperiences.Delete("/:uid/universities/:universityID", handlers.DeleteUniversity)
-	schoolExperiences.Post("/universities", handlers.AddUniversity)
-	schoolExperiences.Post("/universities/bulk", handlers.AddListOfUniversities)
-
 	// Pusher Routes
 	SetupPusherRoutes(router)
 
