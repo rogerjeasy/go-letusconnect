@@ -24,7 +24,8 @@ type ServiceContainer struct {
 	PDFService            *PDFService
 	UploadPDFService      *UploadPDFService
 	// WebSocketService      *WebSocketService
-	WebSocketService *WebSocketService
+	WebSocketService            *WebSocketService
+	UserSchoolExperienceService *UserSchoolExperienceService
 	// Add other services as needed
 }
 
@@ -34,22 +35,23 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 	ws := NewWebSocketService(wsManager)
 
 	return &ServiceContainer{
-		UserService:         NewUserService(firestoreClient),
-		ConnectionService:   NewUserConnectionService(firestoreClient, userSerrvice),
-		NotificationService: NewNotificationService(firestoreClient),
-		MessageService:      NewMessageService(firestoreClient),
-		GroupChatService:    NewGroupChatService(firestoreClient),
-		AuthService:         NewAuthService(firestoreClient),
-		FAQService:          NewFAQService(firestoreClient),
-		ProjectCoreService:  NewProjectCoreService(firestoreClient),
-		ProjectService:      NewProjectService(firestoreClient, userSerrvice),
-		AddressService:      NewAddressService(firestoreClient),
-		NewsletterService:   NewNewsletterService(firestoreClient),
-		ContactUsService:    NewContactUsService(firestoreClient),
-		PDFService:          pdfService,
-		ChatGPTService:      NewChatGPTService(firestoreClient, pdfService),
-		UploadPDFService:    uploadPdfService,
-		WebSocketService:    ws,
+		UserService:                 NewUserService(firestoreClient),
+		ConnectionService:           NewUserConnectionService(firestoreClient, userSerrvice),
+		NotificationService:         NewNotificationService(firestoreClient),
+		MessageService:              NewMessageService(firestoreClient),
+		GroupChatService:            NewGroupChatService(firestoreClient),
+		AuthService:                 NewAuthService(firestoreClient),
+		FAQService:                  NewFAQService(firestoreClient),
+		ProjectCoreService:          NewProjectCoreService(firestoreClient),
+		ProjectService:              NewProjectService(firestoreClient, userSerrvice),
+		AddressService:              NewAddressService(firestoreClient),
+		NewsletterService:           NewNewsletterService(firestoreClient),
+		ContactUsService:            NewContactUsService(firestoreClient),
+		PDFService:                  pdfService,
+		ChatGPTService:              NewChatGPTService(firestoreClient, pdfService),
+		UploadPDFService:            uploadPdfService,
+		WebSocketService:            ws,
+		UserSchoolExperienceService: NewUserSchoolExperienceService(firestoreClient, userSerrvice),
 		// WebSocketService:    NewWebSocketService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services

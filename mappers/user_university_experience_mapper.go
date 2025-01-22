@@ -4,12 +4,15 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/models"
 )
 
-// MapUserSchoolExperienceFrontendToBackend maps frontend UserSchoolExperience to Firestore-compatible format
-func MapUserSchoolExperienceFrontendToBackend(schoolExperience *models.UserSchoolExperience) map[string]interface{} {
-	universities := []map[string]interface{}{}
+// MapUserSchoolExperienceFromGoToFirestore converts Go struct to Firestore format
+func MapUserSchoolExperienceFromGoToFirestore(schoolExperience *models.UserSchoolExperience) map[string]interface{} {
+	if schoolExperience == nil {
+		return nil
+	}
 
-	for _, uni := range schoolExperience.Universities {
-		universities = append(universities, map[string]interface{}{
+	universities := make([]map[string]interface{}, len(schoolExperience.Universities))
+	for i, uni := range schoolExperience.Universities {
+		universities[i] = map[string]interface{}{
 			"id":               uni.ID,
 			"name":             uni.Name,
 			"program":          uni.Program,
@@ -21,10 +24,9 @@ func MapUserSchoolExperienceFrontendToBackend(schoolExperience *models.UserSchoo
 			"experience":       uni.Experience,
 			"awards":           uni.Awards,
 			"extracurriculars": uni.Extracurriculars,
-		})
+		}
 	}
 
-	// Return formatted map
 	return map[string]interface{}{
 		"uid":          schoolExperience.UID,
 		"created_at":   schoolExperience.CreatedAt,
@@ -33,12 +35,52 @@ func MapUserSchoolExperienceFrontendToBackend(schoolExperience *models.UserSchoo
 	}
 }
 
-// MapUserSchoolExperienceBackendToFrontend maps Firestore UserSchoolExperience to frontend format
-func MapUserSchoolExperienceBackendToFrontend(backendData map[string]interface{}) map[string]interface{} {
-	universities := []map[string]interface{}{}
+// MapUserSchoolExperienceFromFirestoreToGo converts Firestore format to Go struct
+func MapUserSchoolExperienceFromFirestoreToGo(firestoreData map[string]interface{}) *models.UserSchoolExperience {
+	if firestoreData == nil {
+		return nil
+	}
 
-	if backendUnis, ok := backendData["universities"].([]interface{}); ok {
-		for _, uni := range backendUnis {
+	experience := &models.UserSchoolExperience{
+		UID:       getStringValue(firestoreData, "uid"),
+		CreatedAt: getTimeValue(firestoreData, "created_at"),
+		UpdatedAt: getFirestoreTimeToGoTime(firestoreData["updated_at"]),
+	}
+
+	if universities, ok := firestoreData["universities"].([]interface{}); ok {
+		experience.Universities = make([]models.University, 0, len(universities))
+		for _, uni := range universities {
+			if uniMap, ok := uni.(map[string]interface{}); ok {
+				university := models.University{
+					ID:               getStringValue(uniMap, "id"),
+					Name:             getStringValue(uniMap, "name"),
+					Program:          getStringValue(uniMap, "program"),
+					Country:          getStringValue(uniMap, "country"),
+					City:             getStringValue(uniMap, "city"),
+					StartYear:        getIntValueSafe(uniMap, "start_year"),
+					EndYear:          getIntValueSafe(uniMap, "end_year"),
+					Degree:           getStringValue(uniMap, "degree"),
+					Experience:       getStringValue(uniMap, "experience"),
+					Awards:           getStringArrayValue(uniMap, "awards"),
+					Extracurriculars: getStringArrayValue(uniMap, "extracurriculars"),
+				}
+				experience.Universities = append(experience.Universities, university)
+			}
+		}
+	}
+
+	return experience
+}
+
+// MapUserSchoolExperienceFromFirestoreToFrontend converts Firestore format to frontend format
+func MapUserSchoolExperienceFromFirestoreToFrontend(firestoreData map[string]interface{}) map[string]interface{} {
+	if firestoreData == nil {
+		return nil
+	}
+
+	universities := []map[string]interface{}{}
+	if firestoreUnis, ok := firestoreData["universities"].([]interface{}); ok {
+		for _, uni := range firestoreUnis {
 			if uniMap, ok := uni.(map[string]interface{}); ok {
 				universities = append(universities, map[string]interface{}{
 					"id":               getStringValue(uniMap, "id"),
@@ -58,27 +100,61 @@ func MapUserSchoolExperienceBackendToFrontend(backendData map[string]interface{}
 	}
 
 	return map[string]interface{}{
-		"uid":          getStringValue(backendData, "uid"),
-		"createdAt":    getStringValue(backendData, "created_at"),
-		"updatedAt":    getStringValue(backendData, "updated_at"),
+		"uid":          getStringValue(firestoreData, "uid"),
+		"createdAt":    getTimeValue(firestoreData, "created_at"),
+		"updatedAt":    getTimeValue(firestoreData, "updated_at"),
 		"universities": universities,
 	}
 }
 
-// MapFrontendToUniversity maps frontend data to University model
-func MapFrontendToUniversity(data map[string]interface{}) models.University {
+// MapUniversityFromFrontendToGo converts frontend format to Go struct
+func MapUniversityFromFrontendToGo(frontendData map[string]interface{}) models.University {
+	if frontendData == nil {
+		return models.University{}
+	}
 
 	return models.University{
-		ID:               getStringValue(data, "id"),
-		Name:             getStringValue(data, "name"),
-		Program:          getStringValue(data, "program"),
-		Country:          getStringValue(data, "country"),
-		City:             getStringValue(data, "city"),
-		StartYear:        getIntValueSafe(data, "startYear"),
-		EndYear:          getIntValueSafe(data, "endYear"),
-		Degree:           getStringValue(data, "degree"),
-		Experience:       getStringValue(data, "experience"),
-		Awards:           getStringArrayValue(data, "awards"),
-		Extracurriculars: getStringArrayValue(data, "extracurriculars"),
+		ID:               getStringValue(frontendData, "id"),
+		Name:             getStringValue(frontendData, "name"),
+		Program:          getStringValue(frontendData, "program"),
+		Country:          getStringValue(frontendData, "country"),
+		City:             getStringValue(frontendData, "city"),
+		StartYear:        getIntValueSafe(frontendData, "startYear"),
+		EndYear:          getIntValueSafe(frontendData, "endYear"),
+		Degree:           getStringValue(frontendData, "degree"),
+		Experience:       getStringValue(frontendData, "experience"),
+		Awards:           getStringArrayValue(frontendData, "awards"),
+		Extracurriculars: getStringArrayValue(frontendData, "extracurriculars"),
+	}
+}
+
+// MapUserSchoolExperienceFromGoToFrontend converts Go struct to frontend format
+func MapUserSchoolExperienceFromGoToFrontend(experience *models.UserSchoolExperience) map[string]interface{} {
+	if experience == nil {
+		return nil
+	}
+
+	universities := make([]map[string]interface{}, len(experience.Universities))
+	for i, uni := range experience.Universities {
+		universities[i] = map[string]interface{}{
+			"id":               uni.ID,
+			"name":             uni.Name,
+			"program":          uni.Program,
+			"country":          uni.Country,
+			"city":             uni.City,
+			"startYear":        uni.StartYear,
+			"endYear":          uni.EndYear,
+			"degree":           uni.Degree,
+			"experience":       uni.Experience,
+			"awards":           uni.Awards,
+			"extracurriculars": uni.Extracurriculars,
+		}
+	}
+
+	return map[string]interface{}{
+		"uid":          experience.UID,
+		"createdAt":    experience.CreatedAt,
+		"updatedAt":    experience.UpdatedAt,
+		"universities": universities,
 	}
 }
