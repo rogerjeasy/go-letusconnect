@@ -59,9 +59,10 @@ func (h *UserSchoolExperienceHandler) GetSchoolExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(
-		mappers.MapUserSchoolExperienceFromGoToFrontend(experience),
-	)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "School experience fetched successfully",
+		"data":    mappers.MapUserSchoolExperienceFromGoToFrontend(experience),
+	})
 }
 
 func (h *UserSchoolExperienceHandler) UpdateUniversity(c *fiber.Ctx) error {
@@ -128,7 +129,7 @@ func (h *UserSchoolExperienceHandler) DeleteUniversity(c *fiber.Ctx) error {
 		return err
 	}
 
-	universityID := c.Params("universityID")
+	universityID := c.Params("id")
 	if universityID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "University ID is required",
@@ -153,20 +154,23 @@ func (h *UserSchoolExperienceHandler) AddListOfUniversities(c *fiber.Ctx) error 
 		return err
 	}
 
-	var universitiesData []map[string]interface{}
-	if err := c.BodyParser(&universitiesData); err != nil {
+	var requestBody struct {
+		Universities []map[string]interface{} `json:"universities"`
+	}
+
+	if err := c.BodyParser(&requestBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": errInvalidPayload,
 		})
 	}
 
-	if len(universitiesData) == 0 {
+	if len(requestBody.Universities) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "No universities provided",
 		})
 	}
 
-	experience, err := h.schoolExperienceService.AddListOfUniversities(c.Context(), uid, universitiesData)
+	experience, err := h.schoolExperienceService.AddListOfUniversities(c.Context(), uid, requestBody.Universities)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": errAddUniversities,
