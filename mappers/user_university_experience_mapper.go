@@ -43,7 +43,7 @@ func MapUserSchoolExperienceFromFirestoreToGo(firestoreData map[string]interface
 
 	experience := &models.UserSchoolExperience{
 		UID:       getStringValue(firestoreData, "uid"),
-		CreatedAt: getTimeValue(firestoreData, "created_at"),
+		CreatedAt: getFirestoreTimeToGoTime(firestoreData["created_at"]),
 		UpdatedAt: getFirestoreTimeToGoTime(firestoreData["updated_at"]),
 	}
 

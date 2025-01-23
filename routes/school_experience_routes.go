@@ -32,8 +32,8 @@ func setupUserSchoolExperienceRoutes(api fiber.Router, sc *services.ServiceConta
 	universities := schoolExperience.Group("/universities")
 	universities.Post("/", schoolExperienceHandler.AddUniversity)
 	universities.Post("/bulk", schoolExperienceHandler.AddListOfUniversities)
-	universities.Put("/:universityID", schoolExperienceHandler.UpdateUniversity)
-	universities.Delete("/:universityID", schoolExperienceHandler.DeleteUniversity)
+	universities.Put("/:id", schoolExperienceHandler.UpdateUniversity)
+	universities.Delete("/:id", schoolExperienceHandler.DeleteUniversity)
 
 	return nil
 }
