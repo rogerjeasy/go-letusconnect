@@ -2,6 +2,7 @@ package services
 
 import (
 	"cloud.google.com/go/firestore"
+	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/rogerjeasy/go-letusconnect/config"
 	"github.com/rogerjeasy/go-letusconnect/models"
 )
@@ -26,10 +27,11 @@ type ServiceContainer struct {
 	// WebSocketService      *WebSocketService
 	WebSocketService            *WebSocketService
 	UserSchoolExperienceService *UserSchoolExperienceService
+	GroupService                *GroupService
 	// Add other services as needed
 }
 
-func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserService, wsManager *models.Manager) *ServiceContainer {
+func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserService, wsManager *models.Manager, cloudinary *cloudinary.Cloudinary) *ServiceContainer {
 	pdfService := NewPDFService(firestoreClient, config.PDFContextURL)
 	uploadPdfService, _ := NewUploadPDFService(firestoreClient, config.CloudinaryURL)
 	ws := NewWebSocketService(wsManager)
@@ -52,6 +54,7 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 		UploadPDFService:            uploadPdfService,
 		WebSocketService:            ws,
 		UserSchoolExperienceService: NewUserSchoolExperienceService(firestoreClient, userSerrvice),
+		GroupService:                NewGroupService(firestoreClient, cloudinary, userSerrvice),
 		// WebSocketService:    NewWebSocketService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services
