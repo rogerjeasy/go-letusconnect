@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
@@ -53,7 +54,7 @@ func (h *GroupHandler) CreateGroup(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "Group created successfully",
-		"data":    createdGroup,
+		"data":    mappers.MapGroupGoToFrontend(*createdGroup),
 	})
 }
 
@@ -74,7 +75,8 @@ func (h *GroupHandler) GetGroup(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": group,
+		"data":    mappers.MapGroupGoToFrontend(*group),
+		"message": "Group retrieved successfully",
 	})
 }
 
@@ -86,7 +88,7 @@ func (h *GroupHandler) UpdateGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	_, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid token",
@@ -94,6 +96,29 @@ func (h *GroupHandler) UpdateGroup(c *fiber.Ctx) error {
 	}
 
 	groupID := c.Params("id")
+
+	ctx := context.Background()
+	existingGroup, err := h.groupService.GetGroup(ctx, groupID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	isAdmin := false
+	for _, admin := range existingGroup.Admins {
+		if admin.UID == userID {
+			isAdmin = true
+			break
+		}
+	}
+
+	if !isAdmin {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Only group admins can update the group",
+		})
+	}
+
 	var updates models.Group
 	if err := c.BodyParser(&updates); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -101,7 +126,9 @@ func (h *GroupHandler) UpdateGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
+	updates.Admins = existingGroup.Admins
+
+	ctx = context.Background()
 	if err := h.groupService.UpdateGroup(ctx, groupID, updates); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -165,8 +192,13 @@ func (h *GroupHandler) ListGroups(c *fiber.Ctx) error {
 		})
 	}
 
+	frontendGroups := make([]map[string]interface{}, 0, len(groups))
+	for _, group := range groups {
+		frontendGroups = append(frontendGroups, mappers.MapGroupGoToFrontend(group))
+	}
+
 	return c.JSON(fiber.Map{
-		"data": groups,
+		"data": frontendGroups,
 	})
 }
 

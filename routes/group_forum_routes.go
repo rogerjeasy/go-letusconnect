@@ -29,7 +29,6 @@ func setupGroupRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 
 	groups := api.Group("/group-forums")
 
-	// Basic CRUD
 	groups.Post("/", handler.CreateGroup)
 	groups.Get("/:id", handler.GetGroup)
 	groups.Put("/:id", handler.UpdateGroup)
