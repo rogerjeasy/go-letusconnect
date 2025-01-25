@@ -30,6 +30,8 @@ func setupGroupRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 	groups := api.Group("/group-forums")
 
 	groups.Post("/", handler.CreateGroup)
+	groups.Get("/my-groups", handler.ListGroupsByUser)
+	groups.Get("/search", handler.SearchGroups)
 	groups.Get("/:id", handler.GetGroup)
 	groups.Put("/:id", handler.UpdateGroup)
 	groups.Delete("/:id", handler.DeleteGroup)
@@ -52,9 +54,6 @@ func setupGroupRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 
 	// Settings
 	groups.Put("/:id/settings", handler.UpdateGroupSettings)
-
-	// Search
-	groups.Get("/search", handler.SearchGroups)
 
 	return nil
 }
