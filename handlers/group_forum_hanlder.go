@@ -202,6 +202,39 @@ func (h *GroupHandler) ListGroups(c *fiber.Ctx) error {
 	})
 }
 
+func (h *GroupHandler) ListGroupsByUser(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	ctx := context.Background()
+	groups, err := h.groupService.ListGroupsByUser(ctx, uid)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	frontendGroups := make([]map[string]interface{}, 0, len(groups))
+	for _, group := range groups {
+		frontendGroups = append(frontendGroups, mappers.MapGroupGoToFrontend(group))
+	}
+
+	return c.JSON(fiber.Map{
+		"data": frontendGroups,
+	})
+}
+
 func (h *GroupHandler) AddMember(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
