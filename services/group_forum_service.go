@@ -15,6 +15,8 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type GroupService struct {
@@ -146,6 +148,44 @@ func (s *GroupService) ListGroups(ctx context.Context, filters map[string]interf
 
 		group := mappers.MapGroupFirestoreToGo(doc.Data())
 		groups = append(groups, group)
+	}
+
+	return groups, nil
+}
+
+func (s *GroupService) ListGroupsByUser(ctx context.Context, userID string) ([]models.Group, error) {
+	var groups []models.Group
+
+	docs, err := s.firestoreClient.Collection("group_forums").Documents(ctx).GetAll()
+	if err != nil && status.Code(err) != codes.NotFound {
+		return nil, fmt.Errorf("failed to get groups: %v", err)
+	}
+
+	for _, doc := range docs {
+		group := mappers.MapGroupFirestoreToGo(doc.Data())
+
+		for _, member := range group.Members {
+			if member.UserID == userID {
+				groups = append(groups, group)
+				break
+			}
+		}
+
+		for _, admin := range group.Admins {
+			if admin.UID == userID {
+				alreadyAdded := false
+				for _, g := range groups {
+					if g.ID == group.ID {
+						alreadyAdded = true
+						break
+					}
+				}
+				if !alreadyAdded {
+					groups = append(groups, group)
+				}
+				break
+			}
+		}
 	}
 
 	return groups, nil
