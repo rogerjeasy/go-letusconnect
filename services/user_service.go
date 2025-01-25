@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"cloud.google.com/go/firestore"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
@@ -158,4 +159,18 @@ func (s *UserService) GetUserByUID(uid string) (map[string]interface{}, error) {
 	// Extract the user data from the document
 	data := doc.Data()
 	return data, nil
+}
+
+func (s *UserService) GetUserByUIDinGoStruct(uid string) (*models.User, error) {
+	ctx := context.Background()
+
+	query := s.firestoreClient.Collection("users").Where("uid", "==", uid).Limit(1)
+	userDoc, err := query.Documents(ctx).Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user data: %v", err)
+	}
+
+	userData := userDoc.Data()
+	user := mappers.MapBackendToUser(userData)
+	return &user, nil
 }

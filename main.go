@@ -27,16 +27,14 @@ func main() {
 	// Initialize Pusher
 	services.InitializePusher()
 
-	// Initialize Cloudinary
-	services.InitCloudinary()
-
 	// Initialize WebSocket manager
 	wsManager := models.NewManager()
 	go wsManager.Run()
 
 	userService := services.NewUserService(services.FirestoreClient)
+	cloudinary := services.InitCloudinary()
 
-	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService, wsManager)
+	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService, wsManager, cloudinary)
 
 	app := fiber.New()
 

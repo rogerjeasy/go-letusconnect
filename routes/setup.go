@@ -40,6 +40,7 @@ func SetupAllRoutes(app *fiber.App, sc *services.ServiceContainer) error {
 		{"chat", setupChatRoutes},
 		{"webSocket", SetupWebSocketRoutes},
 		{"schoolExperience", setupUserSchoolExperienceRoutes},
+		{"group", setupGroupRoutes},
 	}
 
 	for _, setup := range routeSetups {
