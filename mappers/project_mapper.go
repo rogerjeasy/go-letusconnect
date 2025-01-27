@@ -23,12 +23,12 @@ func MapProjectFrontendToGo(data map[string]interface{}) models.Project {
 		JoinRequests:         getJoinRequestsArray(data, "joinRequests"),
 		Tasks:                getTasksArray(data, "tasks"),
 		Progress:             getStringValue(data, "progress"),
-		Comments:             getCommentsArray(data, "comments"),
-		ChatRoomID:           getStringValue(data, "chatRoomId"),
-		Attachments:          getAttachmentsArray(data, "attachments"),
-		Feedback:             getFeedbacksArray(data, "feedback"),
-		CreatedAt:            getTimeValue(data, "createdAt"),
-		UpdatedAt:            getTimeValue(data, "updatedAt"),
+		// Comments:             getCommentsArray(data, "comments"),
+		ChatRoomID:  getStringValue(data, "chatRoomId"),
+		Attachments: getAttachmentsArray(data, "attachments"),
+		Feedback:    getFeedbacksArray(data, "feedback"),
+		CreatedAt:   getTimeValue(data, "createdAt"),
+		UpdatedAt:   getTimeValue(data, "updatedAt"),
 	}
 }
 
@@ -51,12 +51,12 @@ func MapProjectGoToFirestore(project models.Project) map[string]interface{} {
 		"join_requests":         mapJoinRequestsArrayToFirestore(project.JoinRequests),
 		"tasks":                 mapTasksArrayToFirestore(project.Tasks),
 		"progress":              project.Progress,
-		"comments":              mapCommentsArrayToFirestore(project.Comments),
-		"chat_room_id":          project.ChatRoomID,
-		"attachments":           mapAttachmentsArrayToFirestore(project.Attachments),
-		"feedback":              mapFeedbacksArrayToFirestore(project.Feedback),
-		"created_at":            project.CreatedAt,
-		"updated_at":            project.UpdatedAt,
+		// "comments":              mapCommentsArrayToFirestore(project.Comments),
+		"chat_room_id": project.ChatRoomID,
+		"attachments":  mapAttachmentsArrayToFirestore(project.Attachments),
+		"feedback":     mapFeedbacksArrayToFirestore(project.Feedback),
+		"created_at":   project.CreatedAt,
+		"updated_at":   project.UpdatedAt,
 	}
 }
 
@@ -80,12 +80,12 @@ func MapProjectFirestoreToFrontend(data map[string]interface{}) map[string]inter
 		"joinRequests":         mapJoinRequestsArrayToFrontend(data["join_requests"]),
 		"tasks":                mapTasksArrayToFrontend(data["tasks"]),
 		"progress":             getStringValue(data, "progress"),
-		"comments":             mapCommentsArrayToFrontend(data["comments"]),
-		"chatRoomId":           getStringValue(data, "chat_room_id"),
-		"attachments":          mapAttachmentsArrayToFrontend(data["attachments"]),
-		"feedback":             mapFeedbacksArrayToFrontend(data["feedback"]),
-		"createdAt":            getTimeValue(data, "created_at"),
-		"updatedAt":            getTimeValue(data, "updated_at"),
+		// "comments":             mapCommentsArrayToFrontend(data["comments"]),
+		"chatRoomId":  getStringValue(data, "chat_room_id"),
+		"attachments": mapAttachmentsArrayToFrontend(data["attachments"]),
+		"feedback":    mapFeedbacksArrayToFrontend(data["feedback"]),
+		"createdAt":   getTimeValue(data, "created_at"),
+		"updatedAt":   getTimeValue(data, "updated_at"),
 	}
 }
 
@@ -108,11 +108,11 @@ func MapProjectFirestoreToGo(data map[string]interface{}) models.Project {
 		JoinRequests:         getJoinRequestsArray(data, "join_requests"),
 		Tasks:                getTasksArray(data, "tasks"),
 		Progress:             getStringValue(data, "progress"),
-		Comments:             getCommentsArray(data, "comments"),
-		ChatRoomID:           getStringValue(data, "chat_room_id"),
-		Attachments:          getAttachmentsArray(data, "attachments"),
-		Feedback:             getFeedbacksArray(data, "feedback"),
-		CreatedAt:            getTimeValue(data, "created_at"),
-		UpdatedAt:            getTimeValue(data, "updated_at"),
+		// Comments:             getCommentsArray(data, "comments"),
+		ChatRoomID:  getStringValue(data, "chat_room_id"),
+		Attachments: getAttachmentsArray(data, "attachments"),
+		Feedback:    getFeedbacksArray(data, "feedback"),
+		CreatedAt:   getTimeValue(data, "created_at"),
+		UpdatedAt:   getTimeValue(data, "updated_at"),
 	}
 }

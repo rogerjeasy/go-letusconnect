@@ -48,24 +48,24 @@ func getTasksArray(data map[string]interface{}, key string) []models.Task {
 	return []models.Task{}
 }
 
-func getCommentsArray(data map[string]interface{}, key string) []models.Comment {
-	if value, ok := data[key].([]interface{}); ok {
-		var comments []models.Comment
-		for _, v := range value {
-			if commentData, ok := v.(map[string]interface{}); ok {
-				comment := models.Comment{
-					UserID:    getStringValue(commentData, "userId"),
-					UserName:  getStringValue(commentData, "userName"),
-					Content:   getStringValue(commentData, "content"),
-					CreatedAt: getTimeValue(commentData, "createdAt"),
-				}
-				comments = append(comments, comment)
-			}
-		}
-		return comments
-	}
-	return []models.Comment{}
-}
+// func getCommentsArray(data map[string]interface{}, key string) []models.Comment {
+// 	if value, ok := data[key].([]interface{}); ok {
+// 		var comments []models.Comment
+// 		for _, v := range value {
+// 			if commentData, ok := v.(map[string]interface{}); ok {
+// 				comment := models.Comment{
+// 					UserID:    getStringValue(commentData, "userId"),
+// 					UserName:  getStringValue(commentData, "userName"),
+// 					Content:   getStringValue(commentData, "content"),
+// 					CreatedAt: getTimeValue(commentData, "createdAt"),
+// 				}
+// 				comments = append(comments, comment)
+// 			}
+// 		}
+// 		return comments
+// 	}
+// 	return []models.Comment{}
+// }
 
 func getAttachmentsArray(data map[string]interface{}, key string) []models.Attachment {
 	if value, ok := data[key].([]interface{}); ok {
@@ -120,13 +120,13 @@ func mapTasksArrayToFirestore(tasks []models.Task) []map[string]interface{} {
 	return result
 }
 
-func mapCommentsArrayToFirestore(comments []models.Comment) []map[string]interface{} {
-	var result []map[string]interface{}
-	for _, comment := range comments {
-		result = append(result, MapCommentGoToFirestore(comment))
-	}
-	return result
-}
+// func mapCommentsArrayToFirestore(comments []models.Comment) []map[string]interface{} {
+// 	var result []map[string]interface{}
+// 	for _, comment := range comments {
+// 		result = append(result, MapCommentGoToFirestore(comment))
+// 	}
+// 	return result
+// }
 
 func mapAttachmentsArrayToFirestore(attachments []models.Attachment) []map[string]interface{} {
 	var result []map[string]interface{}
