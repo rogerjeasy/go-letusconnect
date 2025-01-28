@@ -234,3 +234,31 @@ func (h *ForumHandler) ListForumsByGroup(c *fiber.Ctx) error {
 		"data": frontendForums,
 	})
 }
+
+func (h *ForumHandler) SearchPosts(c *fiber.Ctx) error {
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	query := c.Query("q")
+	if query == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Search query is required",
+		})
+	}
+
+	ctx := context.Background()
+	posts, err := h.forumService.SearchPosts(ctx, forumID, query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data": posts,
+	})
+}
