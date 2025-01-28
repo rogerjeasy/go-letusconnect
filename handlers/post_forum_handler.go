@@ -1,0 +1,81 @@
+package handlers
+
+import (
+	"context"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/rogerjeasy/go-letusconnect/mappers"
+	"github.com/rogerjeasy/go-letusconnect/models"
+	"github.com/rogerjeasy/go-letusconnect/services"
+)
+
+type ForumHandler struct {
+	forumService *services.ForumService
+	userService  *services.UserService
+}
+
+func NewForumHandler(forumService *services.ForumService, userService *services.UserService) *ForumHandler {
+	return &ForumHandler{
+		forumService: forumService,
+		userService:  userService,
+	}
+}
+
+func (h *ForumHandler) CreateForum(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	var forum models.Forum
+	if err := c.BodyParser(&forum); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	ctx := context.Background()
+	createdForum, err := h.forumService.CreateForum(ctx, forum, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Forum created successfully",
+		"data":    mappers.MapForumGoToFrontend(*createdForum),
+	})
+}
+
+func (h *ForumHandler) GetForum(c *fiber.Ctx) error {
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	forum, err := h.forumService.GetForum(ctx, forumID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data":    mappers.MapForumGoToFrontend(*forum),
+		"message": "Forum retrieved successfully",
+	})
+}
