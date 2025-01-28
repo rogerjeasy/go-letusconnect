@@ -166,3 +166,71 @@ func (h *ForumHandler) CreateComment(c *fiber.Ctx) error {
 		"data":    createdComment,
 	})
 }
+
+func (h *ForumHandler) AddReaction(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	var reaction models.Reaction
+	if err := c.BodyParser(&reaction); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	ctx := context.Background()
+	err = h.forumService.AddReaction(ctx, forumID, reaction, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Reaction added successfully",
+	})
+}
+
+func (h *ForumHandler) ListForumsByGroup(c *fiber.Ctx) error {
+	groupID := c.Params("groupId")
+	if groupID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Group ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	forums, err := h.forumService.ListForumsByGroup(ctx, groupID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	frontendForums := make([]map[string]interface{}, 0, len(forums))
+	for _, forum := range forums {
+		frontendForums = append(frontendForums, mappers.MapForumGoToFrontend(forum))
+	}
+
+	return c.JSON(fiber.Map{
+		"data": frontendForums,
+	})
+}
