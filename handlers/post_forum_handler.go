@@ -79,3 +79,90 @@ func (h *ForumHandler) GetForum(c *fiber.Ctx) error {
 		"message": "Forum retrieved successfully",
 	})
 }
+
+func (h *ForumHandler) CreatePost(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	var post models.Post
+	if err := c.BodyParser(&post); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	ctx := context.Background()
+	createdPost, err := h.forumService.CreatePost(ctx, forumID, post, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Post created successfully",
+		"data":    createdPost,
+	})
+}
+
+func (h *ForumHandler) CreateComment(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("forumId")
+	postID := c.Params("postId")
+	if forumID == "" || postID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID and Post ID are required",
+		})
+	}
+
+	var comment models.Comment
+	if err := c.BodyParser(&comment); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	ctx := context.Background()
+	createdComment, err := h.forumService.CreateComment(ctx, forumID, postID, comment, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Comment created successfully",
+		"data":    createdComment,
+	})
+}
