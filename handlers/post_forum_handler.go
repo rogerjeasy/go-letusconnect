@@ -262,3 +262,233 @@ func (h *ForumHandler) SearchPosts(c *fiber.Ctx) error {
 		"data": posts,
 	})
 }
+
+func (h *ForumHandler) UpdateForum(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	// Check if user is a moderator before allowing update
+	ctx := context.Background()
+	forum, err := h.forumService.GetForum(ctx, forumID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	isModerator := false
+	for _, mod := range forum.Moderators {
+		if mod.UID == userID {
+			isModerator = true
+			break
+		}
+	}
+
+	if !isModerator {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Only forum moderators can update the forum",
+		})
+	}
+
+	var updates models.Forum
+	if err := c.BodyParser(&updates); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// Preserve existing moderators
+	updates.Moderators = forum.Moderators
+
+	if err := h.forumService.UpdateForum(ctx, forumID, updates); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Forum updated successfully",
+	})
+}
+
+func (h *ForumHandler) DeleteForum(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	userID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	if err := h.forumService.DeleteForum(ctx, forumID, userID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Forum deleted successfully",
+	})
+}
+
+func (h *ForumHandler) AddModerator(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	currentUserID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("id")
+	if forumID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID is required",
+		})
+	}
+
+	// Check if current user is a moderator
+	ctx := context.Background()
+	forum, err := h.forumService.GetForum(ctx, forumID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	isModerator := false
+	for _, mod := range forum.Moderators {
+		if mod.UID == currentUserID {
+			isModerator = true
+			break
+		}
+	}
+
+	if !isModerator {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Only existing moderators can add new moderators",
+		})
+	}
+
+	// Get new moderator user ID from request body
+	var reqBody struct {
+		UserID string `json:"userId"`
+	}
+	if err := c.BodyParser(&reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	if err := h.forumService.AddModerator(ctx, forumID, reqBody.UserID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Moderator added successfully",
+	})
+}
+
+func (h *ForumHandler) RemoveModerator(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization token is required",
+		})
+	}
+
+	currentUserID, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	forumID := c.Params("id")
+	userIDToRemove := c.Params("userId")
+	if forumID == "" || userIDToRemove == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Forum ID and user ID are required",
+		})
+	}
+
+	// Check if current user is a moderator
+	ctx := context.Background()
+	forum, err := h.forumService.GetForum(ctx, forumID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	isModerator := false
+	for _, mod := range forum.Moderators {
+		if mod.UID == currentUserID {
+			isModerator = true
+			break
+		}
+	}
+
+	if !isModerator {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Only existing moderators can remove moderators",
+		})
+	}
+
+	// Prevent self-removal if last moderator
+	if currentUserID == userIDToRemove && len(forum.Moderators) <= 1 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Cannot remove the last moderator",
+		})
+	}
+
+	if err := h.forumService.RemoveModerator(ctx, forumID, userIDToRemove); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Moderator removed successfully",
+	})
+}
