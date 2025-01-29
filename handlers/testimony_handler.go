@@ -113,3 +113,49 @@ func (h *TestimonialHandler) CreateStudentSpotlight(c *fiber.Ctx) error {
 		"data":    mappers.MapStudentSpotlightGoToFrontend(*createdSpotlight),
 	})
 }
+
+// GetTestimonial handles retrieving a testimonial by ID
+func (h *TestimonialHandler) GetTestimonial(c *fiber.Ctx) error {
+	testimonialID := c.Params("id")
+	if testimonialID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Testimonial ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	testimonial, err := h.testimonialService.GetTestimonial(ctx, testimonialID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data":    mappers.MapTestimonialGoToFrontend(*testimonial),
+		"message": "Testimonial retrieved successfully",
+	})
+}
+
+// GetAlumniTestimonial handles retrieving an alumni testimonial by ID
+func (h *TestimonialHandler) GetAlumniTestimonial(c *fiber.Ctx) error {
+	testimonialID := c.Params("id")
+	if testimonialID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Testimonial ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	testimonial, err := h.testimonialService.GetAlumniTestimonial(ctx, testimonialID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data":    mappers.MapAlumniTestimonialGoToFrontend(*testimonial),
+		"message": "Alumni testimonial retrieved successfully",
+	})
+}
