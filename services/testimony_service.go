@@ -1,0 +1,54 @@
+package services
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"cloud.google.com/go/firestore"
+	"github.com/google/uuid"
+	"github.com/rogerjeasy/go-letusconnect/mappers"
+	"github.com/rogerjeasy/go-letusconnect/models"
+)
+
+type TestimonialService struct {
+	firestoreClient *firestore.Client
+	userService     *UserService
+}
+
+func NewTestimonialService(fClient *firestore.Client, uService *UserService) *TestimonialService {
+	return &TestimonialService{
+		firestoreClient: fClient,
+		userService:     uService,
+	}
+}
+
+func (s *TestimonialService) CreateTestimonial(ctx context.Context, input models.Testimonial, userID string) (*models.Testimonial, error) {
+	if input.Title == "" {
+		return nil, errors.New("testimonial title is required")
+	}
+
+	if input.Content == "" {
+		return nil, errors.New("testimonial content is required")
+	}
+
+	if input.ID == "" {
+		input.ID = uuid.New().String()
+	}
+
+	input.UserID = userID
+	input.CreatedAt = time.Now()
+	input.UpdatedAt = time.Now()
+	input.IsPublished = false
+	input.Likes = 0
+
+	testimonialData := mappers.MapTestimonialGoToFirestore(input)
+
+	_, err := s.firestoreClient.Collection("testimonials").Doc(input.ID).Set(ctx, testimonialData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create testimonial: %v", err)
+	}
+
+	return &input, nil
+}
