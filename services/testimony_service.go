@@ -171,3 +171,31 @@ func (s *TestimonialService) ListTestimonials(ctx context.Context) ([]models.Tes
 
 	return testimonials, nil
 }
+
+// AddLike increments the like count for a testimonial
+func (s *TestimonialService) AddLike(ctx context.Context, testimonialID string) error {
+	_, err := s.firestoreClient.Collection("testimonials").Doc(testimonialID).Update(ctx, []firestore.Update{
+		{Path: "likes", Value: firestore.Increment(1)},
+		{Path: "updated_at", Value: time.Now()},
+	})
+	return err
+}
+
+// DeleteTestimonial deletes a testimonial
+func (s *TestimonialService) DeleteTestimonial(ctx context.Context, testimonialID string, userID string) error {
+	testimonial, err := s.GetTestimonial(ctx, testimonialID)
+	if err != nil {
+		return err
+	}
+
+	if testimonial.UserID != userID {
+		return errors.New("unauthorized: only the testimonial author can delete it")
+	}
+
+	_, err = s.firestoreClient.Collection("testimonials").Doc(testimonialID).Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete testimonial: %v", err)
+	}
+
+	return nil
+}
