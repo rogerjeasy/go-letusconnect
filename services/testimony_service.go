@@ -52,3 +52,47 @@ func (s *TestimonialService) CreateTestimonial(ctx context.Context, input models
 
 	return &input, nil
 }
+
+// CreateAlumniTestimonial creates a new alumni testimonial
+func (s *TestimonialService) CreateAlumniTestimonial(ctx context.Context, input models.AlumniTestimonial, userID string) (*models.AlumniTestimonial, error) {
+	if input.GraduationYear == 0 {
+		return nil, errors.New("graduation year is required")
+	}
+
+	testimonial, err := s.CreateTestimonial(ctx, input.Testimonial, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	input.Testimonial = *testimonial
+	alumniData := mappers.MapAlumniTestimonialGoToFirestore(input)
+
+	_, err = s.firestoreClient.Collection("alumni_testimonials").Doc(input.ID).Set(ctx, alumniData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create alumni testimonial: %v", err)
+	}
+
+	return &input, nil
+}
+
+// CreateStudentSpotlight creates a new student spotlight
+func (s *TestimonialService) CreateStudentSpotlight(ctx context.Context, input models.StudentSpotlight, userID string) (*models.StudentSpotlight, error) {
+	if input.CurrentSemester == 0 {
+		return nil, errors.New("current semester is required")
+	}
+
+	testimonial, err := s.CreateTestimonial(ctx, input.Testimonial, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	input.Testimonial = *testimonial
+	spotlightData := mappers.MapStudentSpotlightGoToFirestore(input)
+
+	_, err = s.firestoreClient.Collection("student_spotlights").Doc(input.ID).Set(ctx, spotlightData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create student spotlight: %v", err)
+	}
+
+	return &input, nil
+}
