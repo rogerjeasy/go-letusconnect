@@ -223,3 +223,63 @@ func (h *TestimonialHandler) PublishTestimonial(c *fiber.Ctx) error {
 		"message": "Testimonial published successfully",
 	})
 }
+
+// AddLike handles adding a like to a testimonial
+func (h *TestimonialHandler) AddLike(c *fiber.Ctx) error {
+
+	_, err := ExtractAndValidateToken(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	testimonialID := c.Params("id")
+	if testimonialID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Testimonial ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	err = h.testimonialService.AddLike(ctx, testimonialID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Like added successfully",
+	})
+}
+
+// DeleteTestimonial handles deleting a testimonial
+func (h *TestimonialHandler) DeleteTestimonial(c *fiber.Ctx) error {
+
+	userID, err := ExtractAndValidateToken(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	testimonialID := c.Params("id")
+	if testimonialID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Testimonial ID is required",
+		})
+	}
+
+	ctx := context.Background()
+	err = h.testimonialService.DeleteTestimonial(ctx, testimonialID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Testimonial deleted successfully",
+	})
+}
