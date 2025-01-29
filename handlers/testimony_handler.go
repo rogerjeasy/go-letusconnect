@@ -159,3 +159,67 @@ func (h *TestimonialHandler) GetAlumniTestimonial(c *fiber.Ctx) error {
 		"message": "Alumni testimonial retrieved successfully",
 	})
 }
+
+// ListTestimonials handles retrieving all published testimonials
+func (h *TestimonialHandler) ListTestimonials(c *fiber.Ctx) error {
+	ctx := context.Background()
+	testimonials, err := h.testimonialService.ListTestimonials(ctx)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	frontendTestimonials := make([]map[string]interface{}, 0, len(testimonials))
+	for _, testimonial := range testimonials {
+		frontendTestimonials = append(frontendTestimonials, mappers.MapTestimonialGoToFrontend(testimonial))
+	}
+
+	return c.JSON(fiber.Map{
+		"data": frontendTestimonials,
+	})
+}
+
+// PublishTestimonial handles publishing a testimonial
+func (h *TestimonialHandler) PublishTestimonial(c *fiber.Ctx) error {
+
+	userID, err := ExtractAndValidateToken(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	testimonialID := c.Params("id")
+	if testimonialID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Testimonial ID is required",
+		})
+	}
+
+	// Verify ownership before publishing
+	testimonial, err := h.testimonialService.GetTestimonial(c.Context(), testimonialID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if testimonial.UserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Only the testimonial author can publish it",
+		})
+	}
+
+	ctx := context.Background()
+	err = h.testimonialService.PublishTestimonial(ctx, testimonialID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Testimonial published successfully",
+	})
+}
