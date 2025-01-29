@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type TestimonialService struct {
@@ -128,4 +130,44 @@ func (s *TestimonialService) GetStudentSpotlight(ctx context.Context, testimonia
 
 	spotlight := mappers.MapStudentSpotlightFirestoreToGo(doc.Data())
 	return &spotlight, nil
+}
+
+// UpdateTestimonial updates an existing testimonial
+func (s *TestimonialService) UpdateTestimonial(ctx context.Context, testimonialID string, updates models.Testimonial) error {
+	updates.UpdatedAt = time.Now()
+	updateData := mappers.MapTestimonialGoToFirestore(updates)
+
+	_, err := s.firestoreClient.Collection("testimonials").Doc(testimonialID).Set(ctx, updateData, firestore.MergeAll)
+	if err != nil {
+		return fmt.Errorf("failed to update testimonial: %v", err)
+	}
+
+	return nil
+}
+
+// PublishTestimonial publishes a testimonial
+func (s *TestimonialService) PublishTestimonial(ctx context.Context, testimonialID string) error {
+	_, err := s.firestoreClient.Collection("testimonials").Doc(testimonialID).Update(ctx, []firestore.Update{
+		{Path: "is_published", Value: true},
+		{Path: "updated_at", Value: time.Now()},
+	})
+	return err
+}
+
+// ListTestimonials retrieves all published testimonials
+func (s *TestimonialService) ListTestimonials(ctx context.Context) ([]models.Testimonial, error) {
+	query := s.firestoreClient.Collection("testimonials").Where("is_published", "==", true)
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil && status.Code(err) != codes.NotFound {
+		return nil, fmt.Errorf("failed to get testimonials: %v", err)
+	}
+
+	var testimonials []models.Testimonial
+	for _, doc := range docs {
+		testimonial := mappers.MapTestimonialFirestoreToGo(doc.Data())
+		testimonials = append(testimonials, testimonial)
+	}
+
+	return testimonials, nil
 }
