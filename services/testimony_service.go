@@ -96,3 +96,36 @@ func (s *TestimonialService) CreateStudentSpotlight(ctx context.Context, input m
 
 	return &input, nil
 }
+
+// GetTestimonial retrieves a testimonial by ID
+func (s *TestimonialService) GetTestimonial(ctx context.Context, testimonialID string) (*models.Testimonial, error) {
+	doc, err := s.firestoreClient.Collection("testimonials").Doc(testimonialID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get testimonial: %v", err)
+	}
+
+	testimonial := mappers.MapTestimonialFirestoreToGo(doc.Data())
+	return &testimonial, nil
+}
+
+// GetAlumniTestimonial retrieves an alumni testimonial by ID
+func (s *TestimonialService) GetAlumniTestimonial(ctx context.Context, testimonialID string) (*models.AlumniTestimonial, error) {
+	doc, err := s.firestoreClient.Collection("alumni_testimonials").Doc(testimonialID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get alumni testimonial: %v", err)
+	}
+
+	testimonial := mappers.MapAlumniTestimonialFirestoreToGo(doc.Data())
+	return &testimonial, nil
+}
+
+// GetStudentSpotlight retrieves a student spotlight by ID
+func (s *TestimonialService) GetStudentSpotlight(ctx context.Context, testimonialID string) (*models.StudentSpotlight, error) {
+	doc, err := s.firestoreClient.Collection("student_spotlights").Doc(testimonialID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get student spotlight: %v", err)
+	}
+
+	spotlight := mappers.MapStudentSpotlightFirestoreToGo(doc.Data())
+	return &spotlight, nil
+}
