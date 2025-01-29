@@ -51,3 +51,65 @@ func (h *TestimonialHandler) CreateTestimonial(c *fiber.Ctx) error {
 		"data":    mappers.MapTestimonialGoToFrontend(*createdTestimonial),
 	})
 }
+
+// CreateAlumniTestimonial handles the creation of a new alumni testimonial
+func (h *TestimonialHandler) CreateAlumniTestimonial(c *fiber.Ctx) error {
+
+	userID, err := ExtractAndValidateToken(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	var testimonial models.AlumniTestimonial
+	if err := c.BodyParser(&testimonial); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	ctx := context.Background()
+	createdTestimonial, err := h.testimonialService.CreateAlumniTestimonial(ctx, testimonial, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Alumni testimonial created successfully",
+		"data":    mappers.MapAlumniTestimonialGoToFrontend(*createdTestimonial),
+	})
+}
+
+// CreateStudentSpotlight handles the creation of a new student spotlight
+func (h *TestimonialHandler) CreateStudentSpotlight(c *fiber.Ctx) error {
+
+	userID, err := ExtractAndValidateToken(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid token",
+		})
+	}
+
+	var spotlight models.StudentSpotlight
+	if err := c.BodyParser(&spotlight); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	ctx := context.Background()
+	createdSpotlight, err := h.testimonialService.CreateStudentSpotlight(ctx, spotlight, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Student spotlight created successfully",
+		"data":    mappers.MapStudentSpotlightGoToFrontend(*createdSpotlight),
+	})
+}
