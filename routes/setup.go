@@ -42,6 +42,7 @@ func SetupAllRoutes(app *fiber.App, sc *services.ServiceContainer) error {
 		{"schoolExperience", setupUserSchoolExperienceRoutes},
 		{"group", setupGroupRoutes},
 		{"forum", setupForumRoutes},
+		{"testimony", setupTestimonialRoutes},
 	}
 
 	for _, setup := range routeSetups {
