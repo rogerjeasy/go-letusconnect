@@ -9,13 +9,23 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func SendNewUserNotification(ctx context.Context, user *models.User) error {
+type GeneralNotificationService struct {
+	firestoreClient FirestoreClient // Use the FirestoreClient interface
+}
+
+func NewGeneralNotificationService(client FirestoreClient) *GeneralNotificationService {
+	return &GeneralNotificationService{
+		firestoreClient: client,
+	}
+}
+
+func (s *GeneralNotificationService) SendNewUserNotification(ctx context.Context, user *models.User) error {
 	// Create a timeout context to ensure the function doesn't hang
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// Get all users from Firestore
-	iter := FirestoreClient.Collection("users").Documents(ctx)
+	iter := s.firestoreClient.Collection("users").Documents(ctx)
 	defer iter.Stop()
 
 	targetedUsersIDsList := []string{}
@@ -45,7 +55,7 @@ func SendNewUserNotification(ctx context.Context, user *models.User) error {
 	}
 
 	// Create notification service with error handling
-	notificationService := NewNotificationService(FirestoreClient)
+	notificationService := NewNotificationService(s.firestoreClient)
 	if notificationService == nil {
 		return fmt.Errorf("failed to create notification service")
 	}
@@ -76,7 +86,7 @@ func SendNewUserNotification(ctx context.Context, user *models.User) error {
 	return nil
 }
 
-func SendNewGroupMessageNotification(ctx context.Context, senderID, senderName, content, groupChatID string, participants []models.Participant) error {
+func (s *GeneralNotificationService) SendNewGroupMessageNotification(ctx context.Context, senderID, senderName, content, groupChatID string, participants []models.Participant) error {
 	// Create a timeout context
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -96,7 +106,7 @@ func SendNewGroupMessageNotification(ctx context.Context, senderID, senderName, 
 	}
 
 	// Create notification service with error handling
-	notificationService := NewNotificationService(FirestoreClient)
+	notificationService := NewNotificationService(s.firestoreClient)
 	if notificationService == nil {
 		return fmt.Errorf("failed to create notification service")
 	}
@@ -128,13 +138,13 @@ func SendNewGroupMessageNotification(ctx context.Context, senderID, senderName, 
 	return nil
 }
 
-func SendConnectionRequestNotification(ctx context.Context, fromUID, fromUsername, message, toUID string) error {
+func (s *GeneralNotificationService) SendConnectionRequestNotification(ctx context.Context, fromUID, fromUsername, message, toUID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	readStatus := map[string]bool{toUID: false}
 
-	notificationService := NewNotificationService(FirestoreClient)
+	notificationService := NewNotificationService(s.firestoreClient)
 	if notificationService == nil {
 		return fmt.Errorf("failed to create notification service")
 	}
@@ -167,13 +177,13 @@ func SendConnectionRequestNotification(ctx context.Context, fromUID, fromUsernam
 	return nil
 }
 
-func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUsername, toUsername, toUID string) error {
+func (s *GeneralNotificationService) SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUsername, toUsername, toUID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	readStatus := map[string]bool{toUID: false}
 
-	notificationService := NewNotificationService(FirestoreClient)
+	notificationService := NewNotificationService(s.firestoreClient)
 	if notificationService == nil {
 		return fmt.Errorf("failed to create notification service")
 	}
@@ -202,7 +212,7 @@ func SendConnectionAcceptedNotification(ctx context.Context, fromUID, fromUserna
 	return nil
 }
 
-func SendProjectJoinRequestNotification(ctx context.Context, requestingUID, requestingUsername, projectName string, projectMemberUIDs []string) error {
+func (s *GeneralNotificationService) SendProjectJoinRequestNotification(ctx context.Context, requestingUID, requestingUsername, projectName string, projectMemberUIDs []string) error {
 	// Create a timeout context
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -219,7 +229,7 @@ func SendProjectJoinRequestNotification(ctx context.Context, requestingUID, requ
 	}
 
 	// Create notification service with error handling
-	notificationService := NewNotificationService(FirestoreClient)
+	notificationService := NewNotificationService(s.firestoreClient)
 	if notificationService == nil {
 		return fmt.Errorf("failed to create notification service")
 	}
