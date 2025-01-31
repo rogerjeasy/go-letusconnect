@@ -5,17 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"cloud.google.com/go/firestore"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/api/iterator"
 )
 
 type UserService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 }
 
-func NewUserService(client *firestore.Client) *UserService {
+func NewUserService(client FirestoreClient) *UserService {
 	return &UserService{
 		firestoreClient: client,
 	}
