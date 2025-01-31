@@ -15,11 +15,11 @@ import (
 )
 
 type UserConnectionService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	UserService     *UserService
 }
 
-func NewUserConnectionService(client *firestore.Client, userService *UserService) *UserConnectionService {
+func NewUserConnectionService(client FirestoreClient, userService *UserService) *UserConnectionService {
 	return &UserConnectionService{
 		firestoreClient: client,
 		UserService:     userService,
@@ -163,9 +163,9 @@ func (s *UserConnectionService) SendConnectionRequest(ctx context.Context, fromU
 			return fmt.Errorf("failed to update recipient's connections: %v", err)
 		}
 
-		if err := SendConnectionRequestNotification(ctx, fromUID, fromUsername, message, toUID); err != nil {
-			fmt.Printf("Failed to send connection request notification: %v\n", err)
-		}
+		// if err := SendConnectionRequestNotification(ctx, fromUID, fromUsername, message, toUID); err != nil {
+		// 	fmt.Printf("Failed to send connection request notification: %v\n", err)
+		// }
 
 		return nil
 	})
@@ -242,9 +242,9 @@ func (s *UserConnectionService) AcceptConnectionRequest(ctx context.Context, fro
 			return err
 		}
 
-		if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, uidUsername, fromUID); err != nil {
-			fmt.Printf("Failed to send connection accepted notification: %v\n", err)
-		}
+		// if err := SendConnectionAcceptedNotification(ctx, toUID, fromUsername, uidUsername, fromUID); err != nil {
+		// 	fmt.Printf("Failed to send connection accepted notification: %v\n", err)
+		// }
 
 		return nil
 	})
