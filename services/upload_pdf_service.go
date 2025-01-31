@@ -12,7 +12,7 @@ import (
 )
 
 type UploadPDFService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	cloudinary      *cloudinary.Cloudinary
 }
 
@@ -21,7 +21,7 @@ type UploadResponse struct {
 	Message string `json:"message"`
 }
 
-func NewUploadPDFService(firestoreClient *firestore.Client, cloudinaryURL string) (*UploadPDFService, error) {
+func NewUploadPDFService(firestoreClient FirestoreClient, cloudinaryURL string) (*UploadPDFService, error) {
 	// Initialize Cloudinary
 	cld, err := cloudinary.NewFromURL(cloudinaryURL)
 	if err != nil {
