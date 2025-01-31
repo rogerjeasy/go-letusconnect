@@ -38,7 +38,7 @@ func SetupAllRoutes(app *fiber.App, sc *services.ServiceContainer) error {
 		{"newsletter", setupNewsletterRoutes},
 		{"contactUser", setupContactUserRoutes},
 		{"chat", setupChatRoutes},
-		{"webSocket", SetupWebSocketRoutes},
+		// {"webSocket", SetupWebSocketRoutes},
 		{"schoolExperience", setupUserSchoolExperienceRoutes},
 		{"group", setupGroupRoutes},
 		{"forum", setupForumRoutes},
