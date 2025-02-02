@@ -196,7 +196,7 @@ func (f *FAQHandler) UpdateFAQ(c *fiber.Ctx) error {
 	}
 
 	// Update the FAQ in Firestore
-	_, err = services.FirestoreClient.Collection("faqs").Doc(faqID).Update(ctx, updates)
+	_, err = services.Firestore.Collection("faqs").Doc(faqID).Update(ctx, updates)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update FAQ",
@@ -259,7 +259,7 @@ func (f *FAQHandler) DeleteFAQ(c *fiber.Ctx) error {
 
 	// Delete the FAQ from Firestore
 	ctx := context.Background()
-	_, err = services.FirestoreClient.Collection("faqs").Doc(faqID).Delete(ctx)
+	_, err = services.Firestore.Collection("faqs").Doc(faqID).Delete(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to delete FAQ",
@@ -273,7 +273,7 @@ func (f *FAQHandler) DeleteFAQ(c *fiber.Ctx) error {
 
 func (f *FAQHandler) GetAllFAQs(c *fiber.Ctx) error {
 	ctx := context.Background()
-	iter := services.FirestoreClient.Collection("faqs").Documents(ctx)
+	iter := services.Firestore.Collection("faqs").Documents(ctx)
 	defer iter.Stop()
 
 	faqs := make([]map[string]interface{}, 0)
