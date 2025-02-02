@@ -40,7 +40,7 @@ func (h *ContactUsHandler) CreateContact(c *fiber.Ctx) error {
 	newContact := mappers.FrontendToContactUs(requestData)
 
 	// Save to Firestore
-	docRef, _, err := services.FirestoreClient.Collection("contact_us").Add(ctx, mappers.ContactUsToFirestore(newContact))
+	docRef, _, err := services.Firestore.Collection("contact_us").Add(ctx, mappers.ContactUsToFirestore(newContact))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create contact",
@@ -89,7 +89,7 @@ func (h *ContactUsHandler) GetContactByID(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the document by ID
-	doc, err := services.FirestoreClient.Collection("contact_us").Doc(contactID).Get(ctx)
+	doc, err := services.Firestore.Collection("contact_us").Doc(contactID).Get(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -128,7 +128,7 @@ func (h *ContactUsHandler) GetAllContacts(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Query Firestore to get all contacts
-	iter := services.FirestoreClient.Collection("contact_us").Documents(ctx)
+	iter := services.Firestore.Collection("contact_us").Documents(ctx)
 	defer iter.Stop()
 
 	var contacts []models.ContactUs
@@ -203,7 +203,7 @@ func (h *ContactUsHandler) UpdateContactStatus(c *fiber.Ctx) error {
 	}
 
 	// Update Firestore document
-	_, err_new := services.FirestoreClient.Collection("contacts").Doc(contactID).Update(ctx, updates)
+	_, err_new := services.Firestore.Collection("contacts").Doc(contactID).Update(ctx, updates)
 	if err_new != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update contact status",
