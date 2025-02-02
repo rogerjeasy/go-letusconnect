@@ -14,11 +14,11 @@ import (
 )
 
 type UserSchoolExperienceService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	userService     *UserService
 }
 
-func NewUserSchoolExperienceService(client *firestore.Client, userService *UserService) *UserSchoolExperienceService {
+func NewUserSchoolExperienceService(client FirestoreClient, userService *UserService) *UserSchoolExperienceService {
 	return &UserSchoolExperienceService{
 		firestoreClient: client,
 		userService:     userService,

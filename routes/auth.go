@@ -22,7 +22,7 @@ func setupAuthRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 	}
 
 	// Create handler
-	handler := handlers.NewAuthHandler(sc.AuthService)
+	handler := handlers.NewAuthHandler(sc.AuthService, sc)
 	if handler == nil {
 		return fmt.Errorf("failed to create auth handler")
 	}

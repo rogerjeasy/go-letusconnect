@@ -2,15 +2,13 @@ package services
 
 import (
 	"context"
-
-	"cloud.google.com/go/firestore"
 )
 
 type ContactUsService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 }
 
-func NewContactUsService(client *firestore.Client) *ContactUsService {
+func NewContactUsService(client FirestoreClient) *ContactUsService {
 	return &ContactUsService{
 		firestoreClient: client,
 	}

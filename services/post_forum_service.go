@@ -15,11 +15,11 @@ import (
 )
 
 type ForumService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	userService     *UserService
 }
 
-func NewForumService(fClient *firestore.Client, uService *UserService) *ForumService {
+func NewForumService(fClient FirestoreClient, uService *UserService) *ForumService {
 	return &ForumService{
 		firestoreClient: fClient,
 		userService:     uService,

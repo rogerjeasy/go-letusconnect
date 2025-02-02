@@ -6,20 +6,20 @@ import (
 	"net/http"
 	"strings"
 
-	"cloud.google.com/go/firestore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/services"
-	"google.golang.org/api/iterator"
 )
 
 type UserHandler struct {
-	userService *services.UserService
+	userService      *services.UserService
+	containerService *services.ServiceContainer
 }
 
-func NewUserHandler(userService *services.UserService) *UserHandler {
+func NewUserHandler(userService *services.UserService, containerService *services.ServiceContainer) *UserHandler {
 	return &UserHandler{
-		userService: userService,
+		userService:      userService,
+		containerService: containerService,
 	}
 }
 
@@ -50,18 +50,10 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	// Query the user document from Firestore using where()
 	ctx := context.Background()
-	userQuery := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
-	defer userQuery.Stop()
-
-	doc, err := userQuery.Next()
-	if err == iterator.Done {
+	fetchUser, err := h.userService.GetUserByUID(uid)
+	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
-		})
-	}
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user",
 		})
 	}
 
@@ -74,12 +66,16 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		}
 
 		// Check for uniqueness of the new username (if changed)
-		if username != doc.Data()["username"] {
-			usernameQuery := services.FirestoreClient.Collection("users").Where("username", "==", username).Documents(ctx)
-			defer usernameQuery.Stop()
-			if _, err := usernameQuery.Next(); err != iterator.Done {
-				return c.Status(http.StatusConflict).JSON(fiber.Map{
-					"error": "Username already in use",
+		if username != fetchUser["username"] {
+			res, err := h.userService.CheckUsernameUniqueness(username)
+			if err != nil {
+				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to check username uniqueness",
+				})
+			}
+			if !res {
+				return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+					"error": "Username already exists",
 				})
 			}
 		}
@@ -94,8 +90,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	backendUpdates := mappers.MapUserFrontendToBackend(&updatedUser)
 
 	// Update Firestore document
-	docRef := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID)
-	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
+	err = h.containerService.AuthService.UpdateUser(ctx, uid, backendUpdates)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update user",
@@ -121,17 +116,13 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	userQuery := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
-	defer userQuery.Stop()
-
-	doc, err := userQuery.Next()
-	if err == iterator.Done {
+	dbUser, err := h.userService.GetUserByUID(uid)
+	if err != nil {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
 		})
 	}
-
-	userGoStruct := mappers.MapBackendToUser(doc.Data())
+	userGoStruct := mappers.MapBackendToUser(dbUser)
 	if userGoStruct.IsPrivate {
 		token := strings.TrimPrefix(c.Get("Authorization"), "Bearer ")
 		if token == "" {
@@ -151,7 +142,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 		}
 	}
 
-	frontendUser := mappers.MapUserBackendToFrontend(doc.Data())
+	frontendUser := mappers.MapUserBackendToFrontend(dbUser)
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"message": "User retrieved successfully",
 		"user":    frontendUser,
@@ -159,7 +150,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 }
 
 func isConnected(ctx context.Context, requesterUID, targetUID string) bool {
-	connectionsRef := services.FirestoreClient.Collection("connections")
+	connectionsRef := services.Firestore.Collection("connections")
 	query := connectionsRef.Where("status", "==", "accepted").
 		Where("users", "array-contains", requesterUID)
 
@@ -184,28 +175,11 @@ func (h *UserHandler) GetAllUsers(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Query all documents in the "users" collection
-	iter := services.FirestoreClient.Collection("users").Documents(ctx)
-	defer iter.Stop()
-
-	var users []map[string]interface{}
-
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to fetch users",
-			})
-		}
-
-		// Log raw data to check the Firestore document
-		data := doc.Data()
-
-		// Map the backend user data to frontend format
-		frontendUser := mappers.MapUserBackendToFrontend(data)
-		users = append(users, frontendUser)
+	users, err := h.userService.GetAllUsers(ctx)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to retrieve users",
+		})
 	}
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{

@@ -1,14 +1,10 @@
 package services
 
-import (
-	"cloud.google.com/go/firestore"
-)
-
 type ProjectCoreService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 }
 
-func NewProjectCoreService(client *firestore.Client) *ProjectCoreService {
+func NewProjectCoreService(client FirestoreClient) *ProjectCoreService {
 	return &ProjectCoreService{
 		firestoreClient: client,
 	}

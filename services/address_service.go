@@ -12,10 +12,10 @@ import (
 )
 
 type AddressService struct {
-	FirestoreClient *firestore.Client
+	FirestoreClient FirestoreClient
 }
 
-func NewAddressService(client *firestore.Client) *AddressService {
+func NewAddressService(client FirestoreClient) *AddressService {
 	return &AddressService{
 		FirestoreClient: client,
 	}

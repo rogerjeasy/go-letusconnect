@@ -15,11 +15,11 @@ import (
 )
 
 type TestimonialService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	userService     *UserService
 }
 
-func NewTestimonialService(fClient *firestore.Client, uService *UserService) *TestimonialService {
+func NewTestimonialService(fClient FirestoreClient, uService *UserService) *TestimonialService {
 	return &TestimonialService{
 		firestoreClient: fClient,
 		userService:     uService,

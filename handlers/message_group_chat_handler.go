@@ -98,7 +98,7 @@ func (h *GroupChatHandler) CreateGroupChatF(c *fiber.Ctx) error {
 	}
 
 	// Call service function
-	groupChat, err := services.CreateGroupChatService(context.Background(), input)
+	groupChat, err := h.GroupChatService.CreateGroupChatService(context.Background(), input)
 	if err != nil {
 		log.Printf("Failed to create group chat: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -106,7 +106,7 @@ func (h *GroupChatHandler) CreateGroupChatF(c *fiber.Ctx) error {
 		})
 	}
 
-	groupChatData, err := services.GetGroupChatService(context.Background(), groupChat.ID)
+	groupChatData, err := h.GroupChatService.GetGroupChatService(context.Background(), groupChat.ID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -179,7 +179,7 @@ func (h *GroupChatHandler) AddParticipantsToGroupChatHandler(c *fiber.Ctx) error
 	ctx := context.Background()
 
 	// Call the service function to add participants
-	if err := services.AddParticipantsToGroupChat(ctx, groupChatID, projectID, uid, participants); err != nil {
+	if err := h.GroupChatService.AddParticipantsToGroupChat(ctx, groupChatID, projectID, uid, participants); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to add participants to group chat: %v", err),
 		})
@@ -216,7 +216,7 @@ func (h *GroupChatHandler) GetGroupChat(c *fiber.Ctx) error {
 	}
 
 	// Fetch group chat using service
-	groupChat, err := services.GetGroupChatService(context.Background(), groupChatId)
+	groupChat, err := h.GroupChatService.GetGroupChatService(context.Background(), groupChatId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -255,7 +255,7 @@ func (h *GroupChatHandler) GetGroupChatsByProject(c *fiber.Ctx) error {
 	}
 
 	// Fetch group chats using service
-	groupChats, err := services.GetGroupChatsByProjectService(context.Background(), projectId)
+	groupChats, err := h.GroupChatService.GetGroupChatsByProjectService(context.Background(), projectId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -286,7 +286,7 @@ func (h *GroupChatHandler) GetMyGroupChats(c *fiber.Ctx) error {
 	}
 
 	// Fetch group chats using service
-	groupChats, err := services.GetGroupChatsByUserService(context.Background(), uid)
+	groupChats, err := h.GroupChatService.GetGroupChatsByUserService(context.Background(), uid)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -340,7 +340,7 @@ func (h *GroupChatHandler) SendMessageHandler(c *fiber.Ctx) error {
 	}
 
 	// Call the service
-	message, err := services.SendMessageService(context.Background(), requestData.GroupChatID, uid, user["username"].(string), requestData.Content)
+	message, err := h.GroupChatService.SendMessageService(context.Background(), requestData.GroupChatID, uid, user["username"].(string), requestData.Content)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -362,7 +362,7 @@ func (h *GroupChatHandler) SendMessageHandler(c *fiber.Ctx) error {
 	}
 
 	// Notify participants via their notification channels
-	participants, err := services.GetGroupChatParticipants(context.Background(), requestData.GroupChatID)
+	participants, err := h.GroupChatService.GetGroupChatParticipants(context.Background(), requestData.GroupChatID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch group participants",
@@ -408,7 +408,7 @@ func (h *GroupChatHandler) SendMessageHandler(c *fiber.Ctx) error {
 			})
 		}
 
-		unreadCount, err := services.CountUnreadMessagesService(context.Background(), requestData.GroupChatID, "", participant.UserID)
+		unreadCount, err := h.GroupChatService.CountUnreadMessagesService(context.Background(), requestData.GroupChatID, "", participant.UserID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to count unread messages",
@@ -465,7 +465,7 @@ func (h *GroupChatHandler) MarkMessagesAsReadHandler(c *fiber.Ctx) error {
 
 	// Call the service to mark messages as read
 	ctx := context.Background()
-	err = services.MarkMessagesAsReadService(ctx, groupChatID, userID)
+	err = h.GroupChatService.MarkMessagesAsReadService(ctx, groupChatID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to mark messages as read: %v", err),
@@ -507,7 +507,7 @@ func (h *GroupChatHandler) CountUnreadMessagesHandler(c *fiber.Ctx) error {
 
 	// Call the service to count unread messages
 	ctx := context.Background()
-	unreadCount, err := services.CountUnreadMessagesService(ctx, groupChatID, projectID, userID)
+	unreadCount, err := h.GroupChatService.CountUnreadMessagesService(ctx, groupChatID, projectID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to count unread messages: %v", err),
@@ -556,7 +556,7 @@ func (h *GroupChatHandler) CountUnreadGroupMessagesFromAllChatHandler(c *fiber.C
 
 	// Call the service to count all unread messages
 	ctx := context.Background()
-	unreadCount, err := services.CountUnreadGroupMessagesFromAllChatService(ctx, userID)
+	unreadCount, err := h.GroupChatService.CountUnreadGroupMessagesFromAllChatService(ctx, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to count unread messages: %v", err),
@@ -628,7 +628,7 @@ func (h *GroupChatHandler) RemoveParticipantsFromGroupChatHandler(c *fiber.Ctx) 
 
 	// Call the service to remove the participants
 	ctx := context.Background()
-	err = services.RemoveParticipantsFromGroupChatService(ctx, groupChatID, ownerID, requestData.ParticipantIDs)
+	err = h.GroupChatService.RemoveParticipantsFromGroupChatService(ctx, groupChatID, ownerID, requestData.ParticipantIDs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to remove participants: %v", err),
@@ -698,7 +698,7 @@ func (h *GroupChatHandler) ReplyToMessageHandler(c *fiber.Ctx) error {
 
 	// Call the service to reply to the message
 	ctx := context.Background()
-	replyMessage, err := services.ReplyToMessageService(ctx, requestData.GroupChatID, senderID, senderName, requestData.Content, requestData.MessageIDToReply)
+	replyMessage, err := h.GroupChatService.ReplyToMessageService(ctx, requestData.GroupChatID, senderID, senderName, requestData.Content, requestData.MessageIDToReply)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to reply to the message: %v", err),
@@ -761,7 +761,7 @@ func (h *GroupChatHandler) AttachFilesToMessageHandler(c *fiber.Ctx) error {
 	}
 
 	senderName := senderDetails["username"].(string)
-	message, err := services.AttachFilesToMessageService(ctx, groupChatID, senderID, senderName, content, files)
+	message, err := h.GroupChatService.AttachFilesToMessageService(ctx, groupChatID, senderID, senderName, content, files)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to attach files to message: %v", err),
@@ -816,7 +816,7 @@ func (h *GroupChatHandler) PinMessageHandler(c *fiber.Ctx) error {
 
 	// Call the service to pin the message
 	ctx := context.Background()
-	err = services.PinMessageService(ctx, requestData.GroupChatID, userID, requestData.MessageID)
+	err = h.GroupChatService.PinMessageService(ctx, requestData.GroupChatID, userID, requestData.MessageID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to pin message: %v", err),
@@ -865,7 +865,7 @@ func (h *GroupChatHandler) GetPinnedMessagesHandler(c *fiber.Ctx) error {
 
 	// Call the service to get pinned messages
 	ctx := context.Background()
-	pinnedMessages, err := services.GetPinnedMessagesService(ctx, requestData.GroupChatID)
+	pinnedMessages, err := h.GroupChatService.GetPinnedMessagesService(ctx, requestData.GroupChatID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to fetch pinned messages: %v", err),
@@ -920,7 +920,7 @@ func (h *GroupChatHandler) UnpinMessageHandler(c *fiber.Ctx) error {
 
 	// Call the service to unpin the message
 	ctx := context.Background()
-	err = services.UnpinMessageService(ctx, requestData.GroupChatID, userID, requestData.MessageID)
+	err = h.GroupChatService.UnpinMessageService(ctx, requestData.GroupChatID, userID, requestData.MessageID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to unpin message: %v", err),
@@ -948,7 +948,7 @@ func (h *GroupChatHandler) ReactToMessageHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	err = services.ReactToMessageService(context.Background(), requestData.GroupChatID, userID, requestData.MessageID, requestData.Reaction)
+	err = h.GroupChatService.ReactToMessageService(context.Background(), requestData.GroupChatID, userID, requestData.MessageID, requestData.Reaction)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -960,7 +960,7 @@ func (h *GroupChatHandler) GetMessageReadReceiptsHandler(c *fiber.Ctx) error {
 	groupChatID := c.Params("groupChatId")
 	messageID := c.Params("messageId")
 
-	receipts, err := services.GetMessageReadReceiptsService(context.Background(), groupChatID, messageID)
+	receipts, err := h.GroupChatService.GetMessageReadReceiptsService(context.Background(), groupChatID, messageID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -983,7 +983,7 @@ func (h *GroupChatHandler) SetParticipantRoleHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	err = services.SetParticipantRoleService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, requestData.NewRole)
+	err = h.GroupChatService.SetParticipantRoleService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, requestData.NewRole)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1007,7 +1007,7 @@ func (h *GroupChatHandler) MuteParticipantHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	err = services.MuteParticipantService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, time.Duration(requestData.Duration)*time.Second)
+	err = h.GroupChatService.MuteParticipantService(context.Background(), requestData.GroupChatID, userID, requestData.ParticipantID, time.Duration(requestData.Duration)*time.Second)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1023,7 +1023,7 @@ func (h *GroupChatHandler) UpdateLastSeenHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	err = services.UpdateLastSeenService(context.Background(), groupChatID, userID)
+	err = h.GroupChatService.UpdateLastSeenService(context.Background(), groupChatID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1039,7 +1039,7 @@ func (h *GroupChatHandler) ArchiveGroupChatHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	err = services.ArchiveGroupChatService(context.Background(), groupChatID, userID)
+	err = h.GroupChatService.ArchiveGroupChatService(context.Background(), groupChatID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1066,7 +1066,7 @@ func (h *GroupChatHandler) LeaveGroupHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	err = services.LeaveGroupService(context.Background(), groupChatID, userID)
+	err = h.GroupChatService.LeaveGroupService(context.Background(), groupChatID, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1089,7 +1089,7 @@ func (h *GroupChatHandler) CreatePollHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	poll, err := services.CreatePollService(context.Background(), requestData.GroupChatID, userID, requestData.Poll)
+	poll, err := h.GroupChatService.CreatePollService(context.Background(), requestData.GroupChatID, userID, requestData.Poll)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1113,7 +1113,7 @@ func (h *GroupChatHandler) ReportMessageHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	err = services.ReportMessageService(context.Background(), requestData.GroupChatID, userID, requestData.MessageID, requestData.Reason)
+	err = h.GroupChatService.ReportMessageService(context.Background(), requestData.GroupChatID, userID, requestData.MessageID, requestData.Reason)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -1160,7 +1160,7 @@ func (h *GroupChatHandler) UpdateGroupSettingsHandler(c *fiber.Ctx) error {
 	requestDataGo := mappers.MapGroupSettingsFrontendToGo(requestData)
 
 	ctx := context.Background()
-	err = services.UpdateGroupSettingsService(ctx, groupChatId, userID, requestDataGo)
+	err = h.GroupChatService.UpdateGroupSettingsService(ctx, groupChatId, userID, requestDataGo)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to update group settings: %v", err),
@@ -1218,7 +1218,7 @@ func (h *GroupChatHandler) DeleteGroupChat(c *fiber.Ctx) error {
 		})
 	}
 
-	err = services.DeleteGroupChatService(context.Background(), chatID, uid)
+	err = h.GroupChatService.DeleteGroupChatService(context.Background(), chatID, uid)
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
@@ -1270,7 +1270,7 @@ func (h *GroupChatHandler) DeleteMultipleGroupChats(c *fiber.Ctx) error {
 		})
 	}
 
-	err = services.DeleteMultipleGroupChatsService(context.Background(), requestData.ChatIDs, uid)
+	err = h.GroupChatService.DeleteMultipleGroupChatsService(context.Background(), requestData.ChatIDs, uid)
 	if err != nil {
 		if strings.Contains(err.Error(), "Unauthorized") || strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{

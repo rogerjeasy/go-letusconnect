@@ -22,7 +22,7 @@ func setupUserRoutes(api fiber.Router, sc *services.ServiceContainer) error {
 	}
 
 	users := api.Group("/users")
-	handler := handlers.NewUserHandler(sc.UserService)
+	handler := handlers.NewUserHandler(sc.UserService, sc)
 
 	users.Get("/completion", handler.GetProfileCompletion)
 	users.Get("/:uid", handler.GetUser)

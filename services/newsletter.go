@@ -5,15 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
 )
 
 type NewsletterService struct {
-	FirestoreClient *firestore.Client
+	FirestoreClient FirestoreClient
 }
 
-func NewNewsletterService(client *firestore.Client) *NewsletterService {
+func NewNewsletterService(client FirestoreClient) *NewsletterService {
 	return &NewsletterService{
 		FirestoreClient: client,
 	}

@@ -46,7 +46,7 @@ func (s *NewsletterHandler) SubscribeNewsletter(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	newsletterCollection := services.FirestoreClient.Collection("newsletters")
+	newsletterCollection := services.Firestore.Collection("newsletters")
 
 	// Check if the email already exists in the newsletter collection
 	emailQuery := newsletterCollection.Where("email", "==", email).Documents(ctx)
@@ -105,7 +105,7 @@ func (s *NewsletterHandler) UnsubscribeNewsletter(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	newsletterCollection := services.FirestoreClient.Collection("newsletters")
+	newsletterCollection := services.Firestore.Collection("newsletters")
 
 	// Find and delete the document with the specified email
 	emailQuery := newsletterCollection.Where("email", "==", email).Documents(ctx)
@@ -139,7 +139,7 @@ func (s *NewsletterHandler) UnsubscribeNewsletter(c *fiber.Ctx) error {
 // GetAllSubscribers retrieves a list of all subscribed users
 func (s *NewsletterHandler) GetAllSubscribers(c *fiber.Ctx) error {
 	ctx := context.Background()
-	newsletterCollection := services.FirestoreClient.Collection("newsletters")
+	newsletterCollection := services.Firestore.Collection("newsletters")
 
 	// Get all documents from the newsletter collection
 	iter := newsletterCollection.Documents(ctx)

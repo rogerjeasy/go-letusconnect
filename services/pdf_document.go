@@ -12,12 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/firestore"
 	"github.com/ledongthuc/pdf"
 )
 
 type PDFService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	context         string
 	mutex           sync.RWMutex
 	lastUpdated     time.Time
@@ -25,7 +24,7 @@ type PDFService struct {
 	stopRefresh     chan struct{}
 }
 
-func NewPDFService(firestoreClient *firestore.Client, pdfURL string) *PDFService {
+func NewPDFService(firestoreClient FirestoreClient, pdfURL string) *PDFService {
 	if pdfURL == "" {
 		log.Fatal("PDF URL cannot be empty")
 	}

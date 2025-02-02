@@ -10,7 +10,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/config"
 	"github.com/rogerjeasy/go-letusconnect/middleware"
-	"github.com/rogerjeasy/go-letusconnect/models"
 	"github.com/rogerjeasy/go-letusconnect/routes"
 	"github.com/rogerjeasy/go-letusconnect/services"
 	// "github.com/joho/godotenv"
@@ -27,16 +26,15 @@ func main() {
 	// Initialize Pusher
 	services.InitializePusher()
 
-	// Initialize WebSocket manager
-	wsManager := models.NewManager()
-	go wsManager.Run()
-
-	userService := services.NewUserService(services.FirestoreClient)
+	userService := services.NewUserService(services.Firestore)
 	cloudinary := services.InitCloudinary()
 
-	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService, wsManager, cloudinary)
+	serviceContainer := services.NewServiceContainer(services.Firestore, userService, cloudinary)
 
 	app := fiber.New()
+
+	websocketService := services.NewGorillaWebSocketService()
+	websocketService.HandleWebSocket(app)
 
 	// Improved CORS configuration
 	app.Use(middleware.ConfigureCORS())

@@ -17,11 +17,11 @@ import (
 
 // NotificationService handles operations related to notifications
 type NotificationService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 }
 
 // NewNotificationService creates a new NotificationService
-func NewNotificationService(client *firestore.Client) *NotificationService {
+func NewNotificationService(client FirestoreClient) *NotificationService {
 	return &NotificationService{
 		firestoreClient: client,
 	}

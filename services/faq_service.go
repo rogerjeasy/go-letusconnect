@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/firestore"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
 	"github.com/rogerjeasy/go-letusconnect/models"
 	"google.golang.org/grpc/codes"
@@ -13,10 +12,10 @@ import (
 )
 
 type FAQService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 }
 
-func NewFAQService(client *firestore.Client) *FAQService {
+func NewFAQService(client FirestoreClient) *FAQService {
 	return &FAQService{
 		firestoreClient: client,
 	}

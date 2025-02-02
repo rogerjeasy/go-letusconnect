@@ -11,11 +11,11 @@ import (
 )
 
 type ProjectService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	userService     *UserService
 }
 
-func NewProjectService(client *firestore.Client, userService *UserService) *ProjectService {
+func NewProjectService(client FirestoreClient, userService *UserService) *ProjectService {
 	return &ProjectService{
 		firestoreClient: client,
 		userService:     userService,

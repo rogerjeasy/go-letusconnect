@@ -22,7 +22,7 @@ func setupProjectCoreRoutes(api fiber.Router, sc *services.ServiceContainer) err
 		return fmt.Errorf("user service cannot be nil")
 	}
 
-	handler := handlers.NewProjectHandlerSetup(sc.ProjectCoreService, sc.UserService)
+	handler := handlers.NewProjectHandlerSetup(sc.ProjectCoreService, sc.UserService, sc.GroupChatService)
 	if handler == nil {
 		return fmt.Errorf("failed to create project handler")
 	}

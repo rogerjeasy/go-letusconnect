@@ -1,10 +1,8 @@
 package services
 
 import (
-	"cloud.google.com/go/firestore"
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/rogerjeasy/go-letusconnect/config"
-	"github.com/rogerjeasy/go-letusconnect/models"
 )
 
 type ServiceContainer struct {
@@ -30,13 +28,13 @@ type ServiceContainer struct {
 	GroupService                *GroupService
 	ForumService                *ForumService
 	TestimonialService          *TestimonialService
+	GeneralNotificationService  *GeneralNotificationService
 	// Add other services as needed
 }
 
-func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserService, wsManager *models.Manager, cloudinary *cloudinary.Cloudinary) *ServiceContainer {
+func NewServiceContainer(firestoreClient FirestoreClient, userSerrvice *UserService, cloudinary *cloudinary.Cloudinary) *ServiceContainer {
 	pdfService := NewPDFService(firestoreClient, config.PDFContextURL)
 	uploadPdfService, _ := NewUploadPDFService(firestoreClient, config.CloudinaryURL)
-	ws := NewWebSocketService(wsManager)
 
 	return &ServiceContainer{
 		UserService:                 NewUserService(firestoreClient),
@@ -54,11 +52,11 @@ func NewServiceContainer(firestoreClient *firestore.Client, userSerrvice *UserSe
 		PDFService:                  pdfService,
 		ChatGPTService:              NewChatGPTService(firestoreClient, pdfService),
 		UploadPDFService:            uploadPdfService,
-		WebSocketService:            ws,
 		UserSchoolExperienceService: NewUserSchoolExperienceService(firestoreClient, userSerrvice),
 		GroupService:                NewGroupService(firestoreClient, cloudinary, userSerrvice),
 		ForumService:                NewForumService(firestoreClient, userSerrvice),
 		TestimonialService:          NewTestimonialService(firestoreClient, userSerrvice),
+		GeneralNotificationService:  NewGeneralNotificationService(firestoreClient),
 		// WebSocketService:    NewWebSocketService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services

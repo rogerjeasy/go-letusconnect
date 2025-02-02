@@ -62,7 +62,7 @@ func (m *MessageHandler) SendMessage(c *fiber.Ctx) error {
 	}
 
 	// Add message to Firestore
-	_, _, err = services.FirestoreClient.Collection("messages").Add(context.Background(), mappers.MapMessageGoToFirestore(message))
+	_, _, err = services.Firestore.Collection("messages").Add(context.Background(), mappers.MapMessageGoToFirestore(message))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send message"})
 	}
@@ -104,7 +104,7 @@ func (m *MessageHandler) GetMessages(c *fiber.Ctx) error {
 		})
 	}
 
-	iter := services.FirestoreClient.Collection("messages").
+	iter := services.Firestore.Collection("messages").
 		Documents(context.Background())
 
 	var directMessages []models.DirectMessage
@@ -257,7 +257,7 @@ func (m *MessageHandler) SendDirectMessage(c *fiber.Ctx) error {
 	sort.Strings(ids)
 	channelID := strings.Join(ids, "-")
 
-	docRef := services.FirestoreClient.Collection("messages").Doc(channelID)
+	docRef := services.Firestore.Collection("messages").Doc(channelID)
 
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil && !docSnapshot.Exists() {
@@ -342,7 +342,7 @@ func (m *MessageHandler) GetDirectMessages(c *fiber.Ctx) error {
 	}
 
 	// Fetch all documents from the Firestore messages collection
-	iter := services.FirestoreClient.Collection("messages").Documents(context.Background())
+	iter := services.Firestore.Collection("messages").Documents(context.Background())
 
 	var messagesList []models.Messages
 
@@ -445,7 +445,7 @@ func SendGroupMessage(c *fiber.Ctx) error {
 	}
 
 	// Add message to Firestore
-	_, _, err = services.FirestoreClient.Collection("group_messages").Add(context.Background(), mappers.MapGroupMessageGoToFirestore(message))
+	_, _, err = services.Firestore.Collection("group_messages").Add(context.Background(), mappers.MapGroupMessageGoToFirestore(message))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send group message."})
 	}
@@ -494,7 +494,7 @@ func GetUnreadMessagesCount(c *fiber.Ctx) error {
 	senderID := c.Query("senderId")
 
 	// Query Firestore for all messages documents
-	iter := services.FirestoreClient.Collection("messages").Documents(context.Background())
+	iter := services.Firestore.Collection("messages").Documents(context.Background())
 
 	unreadCount := 0
 
@@ -570,7 +570,7 @@ func MarkMessagesAsRead(c *fiber.Ctx) error {
 	sort.Strings(ids)
 	channelID := strings.Join(ids, "-")
 
-	docRef := services.FirestoreClient.Collection("messages").Doc(channelID)
+	docRef := services.Firestore.Collection("messages").Doc(channelID)
 
 	// Fetch the document from Firestore
 	docSnapshot, err := docRef.Get(context.Background())

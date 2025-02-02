@@ -17,13 +17,15 @@ import (
 
 type ProjectHandlerSetup struct {
 	// projectService *services.ProjectService
-	userService *services.UserService
+	userService      *services.UserService
+	groupChatService *services.GroupChatService
 }
 
-func NewProjectHandlerSetup(projectCoreService *services.ProjectCoreService, userService *services.UserService) *ProjectHandlerSetup {
+func NewProjectHandlerSetup(projectCoreService *services.ProjectCoreService, userService *services.UserService, groupChatService *services.GroupChatService) *ProjectHandlerSetup {
 	return &ProjectHandlerSetup{
 		// projectService: projectService,
-		userService: userService,
+		userService:      userService,
+		groupChatService: groupChatService,
 	}
 }
 
@@ -119,7 +121,7 @@ func (h *ProjectHandlerSetup) CreateProject(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Save to Firestore
-	docRef, _, err := services.FirestoreClient.Collection("projects").Add(ctx, mappers.MapProjectGoToFirestore(newProject))
+	docRef, _, err := services.Firestore.Collection("projects").Add(ctx, mappers.MapProjectGoToFirestore(newProject))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create project",
@@ -136,7 +138,7 @@ func (h *ProjectHandlerSetup) CreateProject(c *fiber.Ctx) error {
 		ProfilePicture: user["profile_picture"].(string),
 	}
 
-	_, err = services.CreateGroupChatService(ctx, groupChatInput)
+	_, err = h.groupChatService.CreateGroupChatService(ctx, groupChatInput)
 	if err != nil {
 		// Log the error but don't fail the project creation
 		log.Printf("Failed to create associated group chat for project %s: %v", docRef.ID, err)
@@ -176,7 +178,7 @@ func (h *ProjectHandlerSetup) UpdateProject(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -239,7 +241,7 @@ func (h *ProjectHandlerSetup) UpdateProject(c *fiber.Ctx) error {
 	}
 
 	// Update project in Firestore
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Set(ctx, mappers.MapProjectGoToFirestore(updatedProject), firestore.MergeAll)
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Set(ctx, mappers.MapProjectGoToFirestore(updatedProject), firestore.MergeAll)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update project",
@@ -286,7 +288,7 @@ func (h *ProjectHandlerSetup) GetProject(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project document from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -340,7 +342,7 @@ func (h *ProjectHandlerSetup) DeleteProject(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project document from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -369,7 +371,7 @@ func (h *ProjectHandlerSetup) DeleteProject(c *fiber.Ctx) error {
 	}
 
 	// Delete the project from Firestore
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Delete(ctx)
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Delete(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to delete project",
@@ -386,7 +388,7 @@ func (h *ProjectHandlerSetup) GetAllPublicProjects(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Query Firestore for projects with collaboration_type == "public"
-	iter := services.FirestoreClient.Collection("projects").Where("collaboration_type", "in", []interface{}{"public", "Public"}).Documents(ctx)
+	iter := services.Firestore.Collection("projects").Where("collaboration_type", "in", []interface{}{"public", "Public"}).Documents(ctx)
 	var projects []map[string]interface{}
 
 	for {
@@ -430,7 +432,7 @@ func (h *ProjectHandlerSetup) GetOwnerProjects(c *fiber.Ctx) error {
 	var projects []map[string]interface{} = []map[string]interface{}{}
 
 	// Query Firestore for projects where owner_id == uid
-	iter := services.FirestoreClient.Collection("projects").Where("owner_id", "==", uid).Documents(ctx)
+	iter := services.Firestore.Collection("projects").Where("owner_id", "==", uid).Documents(ctx)
 
 	for {
 		doc, err := iter.Next()
@@ -468,7 +470,7 @@ func (h *ProjectHandlerSetup) GetParticipationProjects(c *fiber.Ctx) error {
 	var projects []map[string]interface{}
 
 	// Query Firestore for projects where user is a participant
-	query := services.FirestoreClient.Collection("projects").Documents(ctx)
+	query := services.Firestore.Collection("projects").Documents(ctx)
 	for {
 		doc, err := query.Next()
 		if err == iterator.Done {
