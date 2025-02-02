@@ -129,9 +129,9 @@ func (h *ProjectHandler) JoinProjectCollab(c *fiber.Ctx) error {
 		}
 	}
 	// Send notification to owners
-	if err := services.SendProjectJoinRequestNotification(c.Context(), uid, username, requestData.Title, ownerIDs); err != nil {
-		log.Printf("Error sending join request notification: %v", err)
-	}
+	// if err := SendProjectJoinRequestNotification(c.Context(), uid, username, requestData.Title, ownerIDs); err != nil {
+	// 	log.Printf("Error sending join request notification: %v", err)
+	// }
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Join request submitted successfully",
@@ -167,7 +167,7 @@ func (h *ProjectHandler) RemoveParticipantCollab(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -212,7 +212,7 @@ func (h *ProjectHandler) RemoveParticipantCollab(c *fiber.Ctx) error {
 	}
 
 	// Update the participants list in Firestore
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 		{Path: "participants", Value: updatedParticipants},
 	})
 
@@ -256,7 +256,7 @@ func (h *ProjectHandler) AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -327,7 +327,7 @@ func (h *ProjectHandler) AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 					ProfilePicture: requestData.ProfilePicture,
 					JoinedAt:       time.Now(),
 				}
-				_, err := services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+				_, err := services.Firestore.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 					{Path: "participants", Value: firestore.ArrayUnion(mappers.MapParticipantGoToFirestore(newParticipant))},
 				})
 				if err != nil {
@@ -349,7 +349,7 @@ func (h *ProjectHandler) AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 				}
 			} else if requestData.Action == "reject" {
 				// Add the user ID to the RejectedParticipants list
-				_, err := services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+				_, err := services.Firestore.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 					{Path: "rejected_participants", Value: firestore.ArrayUnion(userID)},
 				})
 				if err != nil {
@@ -375,7 +375,7 @@ func (h *ProjectHandler) AcceptRejectJoinRequestCollab(c *fiber.Ctx) error {
 	}
 
 	// Update the join requests in Firestore to remove the processed request
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 		{Path: "join_requests", Value: updatedJoinRequests},
 	})
 
@@ -432,7 +432,7 @@ func (h *ProjectHandler) InviteUserCollab(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -526,7 +526,7 @@ func (h *ProjectHandler) InviteUserCollab(c *fiber.Ctx) error {
 		"joined_at":       time.Now().Format(time.RFC3339),
 	}
 
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 		{Path: "invited_users", Value: firestore.ArrayUnion(invite)},
 	})
 
@@ -581,7 +581,7 @@ func (h *ProjectHandler) AddTask(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -627,7 +627,7 @@ func (h *ProjectHandler) AddTask(c *fiber.Ctx) error {
 	task.UpdatedAt = time.Now()
 
 	// Add the task to Firestore
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Update(ctx, []firestore.Update{
 		{Path: "tasks", Value: firestore.ArrayUnion(mappers.MapTaskGoToFirestore(task))},
 	})
 	if err != nil {
@@ -671,7 +671,7 @@ func (h *ProjectHandler) UpdateTask(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -725,7 +725,7 @@ func (h *ProjectHandler) UpdateTask(c *fiber.Ctx) error {
 	}
 
 	// Save the updated project back to Firestore
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Set(ctx, mappers.MapProjectGoToFirestore(project))
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Set(ctx, mappers.MapProjectGoToFirestore(project))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update task",
@@ -774,7 +774,7 @@ func (h *ProjectHandler) DeleteTask(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Fetch the project from Firestore
-	doc, err := services.FirestoreClient.Collection("projects").Doc(projectID).Get(ctx)
+	doc, err := services.Firestore.Collection("projects").Doc(projectID).Get(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Project not found",
@@ -811,7 +811,7 @@ func (h *ProjectHandler) DeleteTask(c *fiber.Ctx) error {
 	fmt.Printf("Updated Tasks: %+v\n", updatedTasks)
 
 	// Update Firestore with the new tasks list
-	_, err = services.FirestoreClient.Collection("projects").Doc(projectID).Set(ctx, map[string]interface{}{
+	_, err = services.Firestore.Collection("projects").Doc(projectID).Set(ctx, map[string]interface{}{
 		"tasks": updatedTasks,
 	}, firestore.MergeAll)
 	if err != nil {
