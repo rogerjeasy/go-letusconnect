@@ -184,7 +184,7 @@ func (a *AddressHandler) DeleteUserAddress(c *fiber.Ctx) error {
 	}
 
 	// Verify the address belongs to the user
-	docRef := services.FirestoreClient.Collection("user_addresses").Doc(addressID)
+	docRef := services.Firestore.Collection("user_addresses").Doc(addressID)
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
@@ -244,7 +244,7 @@ func CreateUserWorkExperience(c *fiber.Ctx) error {
 	workExperience.UID = uid
 	workExperience.CreatedAt = time.Now()
 
-	_, _, err = services.FirestoreClient.Collection("user_work_experiences").Add(context.Background(), workExperience)
+	_, _, err = services.Firestore.Collection("user_work_experiences").Add(context.Background(), workExperience)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to save work experience",
@@ -286,7 +286,7 @@ func UpdateUserWorkExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	docRef := services.FirestoreClient.Collection("user_work_experiences").Doc(workExperienceID)
+	docRef := services.Firestore.Collection("user_work_experiences").Doc(workExperienceID)
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
@@ -344,7 +344,7 @@ func GetUserWorkExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	docRef := services.FirestoreClient.Collection("user_work_experiences").Doc(workExperienceID)
+	docRef := services.Firestore.Collection("user_work_experiences").Doc(workExperienceID)
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
@@ -392,7 +392,7 @@ func DeleteUserWorkExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	docRef := services.FirestoreClient.Collection("user_work_experiences").Doc(workExperienceID)
+	docRef := services.Firestore.Collection("user_work_experiences").Doc(workExperienceID)
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
@@ -450,7 +450,7 @@ func CreateUserSchoolExperience(c *fiber.Ctx) error {
 	schoolExperience.UID = uid
 	schoolExperience.CreatedAt = time.Now()
 
-	_, _, err = services.FirestoreClient.Collection("user_school_experiences").Add(context.Background(), schoolExperience)
+	_, _, err = services.Firestore.Collection("user_school_experiences").Add(context.Background(), schoolExperience)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to save school experience",
@@ -492,7 +492,7 @@ func UpdateUserSchoolExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	docRef := services.FirestoreClient.Collection("user_school_experiences").Doc(schoolExperienceID)
+	docRef := services.Firestore.Collection("user_school_experiences").Doc(schoolExperienceID)
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
@@ -543,7 +543,7 @@ func GetUserSchoolExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	query := services.FirestoreClient.Collection("user_school_experiences").Where("UID", "==", uid).Documents(context.Background())
+	query := services.Firestore.Collection("user_school_experiences").Where("UID", "==", uid).Documents(context.Background())
 	defer query.Stop()
 
 	var experiences []models.UserSchoolExperience
@@ -595,7 +595,7 @@ func DeleteUserSchoolExperience(c *fiber.Ctx) error {
 		})
 	}
 
-	docRef := services.FirestoreClient.Collection("user_school_experiences").Doc(schoolExperienceID)
+	docRef := services.Firestore.Collection("user_school_experiences").Doc(schoolExperienceID)
 	docSnapshot, err := docRef.Get(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
