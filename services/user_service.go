@@ -173,3 +173,74 @@ func (s *UserService) GetUserByUIDinGoStruct(uid string) (*models.User, error) {
 	user := mappers.MapBackendToUser(userData)
 	return &user, nil
 }
+
+// check uniqueness of username
+func (s *UserService) CheckUsernameUniqueness(username string) (bool, error) {
+	ctx := context.Background()
+
+	query := s.firestoreClient.Collection("users").Where("username", "==", username).Limit(1).Documents(ctx)
+	defer query.Stop()
+
+	doc, err := query.Next()
+	if err == iterator.Done {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check username uniqueness: %v", err)
+	}
+
+	if doc != nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// check uniqueness of email
+func (s *UserService) CheckEmailUniqueness(email string) (bool, error) {
+	ctx := context.Background()
+
+	query := s.firestoreClient.Collection("users").Where("email", "==", email).Limit(1).Documents(ctx)
+	defer query.Stop()
+
+	doc, err := query.Next()
+	if err == iterator.Done {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check email uniqueness: %v", err)
+	}
+
+	if doc != nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// function to get all users
+func (s *UserService) GetAllUsers(ctx context.Context) ([]map[string]interface{}, error) {
+	iter := s.firestoreClient.Collection("users").Documents(ctx)
+	defer iter.Stop()
+
+	var users []map[string]interface{}
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch users: %v", err)
+		}
+
+		// Log raw data to check the Firestore document
+		data := doc.Data()
+
+		// Map the backend user data to frontend format
+		frontendUser := mappers.MapUserBackendToFrontend(data)
+		users = append(users, frontendUser)
+	}
+
+	return users, nil
+}
