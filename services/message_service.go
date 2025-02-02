@@ -3,17 +3,15 @@ package services
 import (
 	"context"
 	"fmt"
-
-	"cloud.google.com/go/firestore"
 	// "github.com/rogerjeasy/go-letusconnect/mappers"
 	// "github.com/rogerjeasy/go-letusconnect/models"
 )
 
 type MessageService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 }
 
-func NewMessageService(client *firestore.Client) *MessageService {
+func NewMessageService(client FirestoreClient) *MessageService {
 	return &MessageService{
 		firestoreClient: client,
 	}

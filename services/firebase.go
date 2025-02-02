@@ -16,10 +16,20 @@ import (
 )
 
 var (
-	FirebaseApp     *firebase.App
-	FirestoreClient *firestore.Client
-	FirebaseAuth    *auth.Client
+	FirebaseApp  *firebase.App
+	Firestore    FirestoreClient
+	FirebaseAuth *auth.Client
 )
+
+// FirestoreClient defines the methods from firestore.Client that are used in UserService.
+type FirestoreClient interface {
+	Collection(path string) *firestore.CollectionRef
+	Doc(path string) *firestore.DocumentRef
+	GetAll(ctx context.Context, docRefs []*firestore.DocumentRef) ([]*firestore.DocumentSnapshot, error)
+	Batch() *firestore.WriteBatch
+	RunTransaction(ctx context.Context, f func(context.Context, *firestore.Transaction) error, opts ...firestore.TransactionOption) error
+	Close() error
+}
 
 func InitializeFirebase() error {
 	// opt := option.WithCredentialsFile(os.Getenv("FIREBASE_SERVICE_ACCOUNT"))
@@ -72,7 +82,7 @@ func InitializeFirebase() error {
 		return fmt.Errorf("error initializing Firestore client: %v", err)
 	}
 
-	FirestoreClient = client
+	Firestore = client
 	log.Println("Firestore client initialized successfully")
 
 	// Initialize Firebase Auth client

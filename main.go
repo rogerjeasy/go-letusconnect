@@ -26,10 +26,10 @@ func main() {
 	// Initialize Pusher
 	services.InitializePusher()
 
-	userService := services.NewUserService(services.FirestoreClient)
+	userService := services.NewUserService(services.Firestore)
 	cloudinary := services.InitCloudinary()
 
-	serviceContainer := services.NewServiceContainer(services.FirestoreClient, userService, cloudinary)
+	serviceContainer := services.NewServiceContainer(services.Firestore, userService, cloudinary)
 
 	app := fiber.New()
 

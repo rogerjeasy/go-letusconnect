@@ -20,12 +20,12 @@ import (
 )
 
 type GroupService struct {
-	firestoreClient  *firestore.Client
+	firestoreClient  FirestoreClient
 	cloudinaryClient *cloudinary.Cloudinary
 	userService      *UserService
 }
 
-func NewGroupService(fClient *firestore.Client, cClient *cloudinary.Cloudinary, uUserService *UserService) *GroupService {
+func NewGroupService(fClient FirestoreClient, cClient *cloudinary.Cloudinary, uUserService *UserService) *GroupService {
 	return &GroupService{
 		firestoreClient:  fClient,
 		cloudinaryClient: cClient,

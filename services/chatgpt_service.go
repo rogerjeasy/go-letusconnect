@@ -17,11 +17,11 @@ import (
 
 type ChatGPTService struct {
 	client          *openai.Client
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient
 	pdfService      *PDFService
 }
 
-func NewChatGPTService(firestoreClient *firestore.Client, pdfService *PDFService) *ChatGPTService {
+func NewChatGPTService(firestoreClient FirestoreClient, pdfService *PDFService) *ChatGPTService {
 	return &ChatGPTService{
 		client:          openai.NewClient(config.OpenAIKey),
 		firestoreClient: firestoreClient,

@@ -20,10 +20,10 @@ import (
 )
 
 type GroupChatService struct {
-	firestoreClient *firestore.Client
+	firestoreClient FirestoreClient // Use the FirestoreClient interface
 }
 
-func NewGroupChatService(client *firestore.Client) *GroupChatService {
+func NewGroupChatService(client FirestoreClient) *GroupChatService {
 	return &GroupChatService{
 		firestoreClient: client,
 	}
@@ -40,7 +40,7 @@ type GroupChatInput struct {
 	Participants   []models.Participant
 }
 
-func CreateGroupChatService(ctx context.Context, input GroupChatInput) (*models.GroupChat, error) {
+func (s *GroupChatService) CreateGroupChatService(ctx context.Context, input GroupChatInput) (*models.GroupChat, error) {
 	chatID := uuid.New().String()
 
 	// Initialize participants with the creator
@@ -94,7 +94,7 @@ func CreateGroupChatService(ctx context.Context, input GroupChatInput) (*models.
 	}
 
 	// Save to Firestore
-	_, _, err := FirestoreClient.Collection("group_chats").Add(ctx, mappers.MapGroupChatGoToFirestore(groupChat))
+	_, _, err := s.firestoreClient.Collection("group_chats").Add(ctx, mappers.MapGroupChatGoToFirestore(groupChat))
 	if err != nil {
 		return nil, err
 	}
@@ -102,12 +102,12 @@ func CreateGroupChatService(ctx context.Context, input GroupChatInput) (*models.
 	return &groupChat, nil
 }
 
-func GetGroupChatService(ctx context.Context, groupId string) (map[string]interface{}, error) {
+func (s *GroupChatService) GetGroupChatService(ctx context.Context, groupId string) (map[string]interface{}, error) {
 	if groupId == "" {
 		return nil, fmt.Errorf("group ID is required")
 	}
 
-	query := FirestoreClient.Collection("group_chats").Where("id", "==", groupId).Limit(1)
+	query := s.firestoreClient.Collection("group_chats").Where("id", "==", groupId).Limit(1)
 	iter := query.Documents(ctx)
 	docSnap, err := iter.Next()
 	if err == iterator.Done {
@@ -130,13 +130,13 @@ func GetGroupChatService(ctx context.Context, groupId string) (map[string]interf
 }
 
 // GetGroupChatsByProjectService fetches all group chats for a project
-func GetGroupChatsByProjectService(ctx context.Context, projectId string) ([]map[string]interface{}, error) {
+func (s *GroupChatService) GetGroupChatsByProjectService(ctx context.Context, projectId string) ([]map[string]interface{}, error) {
 	if projectId == "" {
 		return nil, fmt.Errorf("project ID is required")
 	}
 
 	// Query Firestore for group chats with matching project ID
-	query := FirestoreClient.Collection("group_chats").Where("project_id", "==", projectId)
+	query := s.firestoreClient.Collection("group_chats").Where("project_id", "==", projectId)
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chats: %v", err)
@@ -157,12 +157,12 @@ func GetGroupChatsByProjectService(ctx context.Context, projectId string) ([]map
 }
 
 // GetGroupChatsByUserService fetches all group chats where the user is a participant
-func GetGroupChatsByUserService(ctx context.Context, userId string) ([]map[string]interface{}, error) {
+func (s *GroupChatService) GetGroupChatsByUserService(ctx context.Context, userId string) ([]map[string]interface{}, error) {
 	if userId == "" {
 		return nil, fmt.Errorf("user ID is required")
 	}
 
-	query := FirestoreClient.Collection("group_chats")
+	query := s.firestoreClient.Collection("group_chats")
 
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
@@ -200,7 +200,7 @@ func GetGroupChatsByUserService(ctx context.Context, userId string) ([]map[strin
 }
 
 // AddParticipantsToGroupChat adds a list of participants to a given group chat by groupChatID or projectID
-func AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, userID string, participants []models.Participant) error {
+func (s *GroupChatService) AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, userID string, participants []models.Participant) error {
 	if groupChatID == "" && projectID == "" {
 		return fmt.Errorf("either groupChatID or projectID must be provided")
 	}
@@ -215,10 +215,10 @@ func AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, use
 
 	// Fetch the group chat document
 	if groupChatID != "" {
-		docRef = FirestoreClient.Collection("group_chats").Doc(groupChatID)
+		docRef = s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 		docSnap, err = docRef.Get(ctx)
 	} else if projectID != "" {
-		query := FirestoreClient.Collection("group_chats").Where("project_id", "==", projectID).Limit(1)
+		query := s.firestoreClient.Collection("group_chats").Where("project_id", "==", projectID).Limit(1)
 		iter := query.Documents(ctx)
 		docSnap, err = iter.Next()
 		if err == iterator.Done {
@@ -281,12 +281,12 @@ func AddParticipantsToGroupChat(ctx context.Context, groupChatID, projectID, use
 	return nil
 }
 
-func GetGroupChatParticipants(ctx context.Context, groupChatID string) ([]models.Participant, error) {
+func (s *GroupChatService) GetGroupChatParticipants(ctx context.Context, groupChatID string) ([]models.Participant, error) {
 	if groupChatID == "" {
 		return nil, fmt.Errorf("groupChatID is required")
 	}
 
-	groupChatDoc := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	groupChatDoc := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 
 	docSnapshot, err := groupChatDoc.Get(ctx)
 	if err != nil {
@@ -302,7 +302,7 @@ func GetGroupChatParticipants(ctx context.Context, groupChatID string) ([]models
 	return groupChat.Participants, nil
 }
 
-func SendMessageService(ctx context.Context, groupChatID string, senderID string, senderName string, content string) (*models.BaseMessage, error) {
+func (s *GroupChatService) SendMessageService(ctx context.Context, groupChatID string, senderID string, senderName string, content string) (*models.BaseMessage, error) {
 	// Validate required parameters
 	if groupChatID == "" {
 		return nil, fmt.Errorf("groupChatID is required")
@@ -315,7 +315,7 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
@@ -359,11 +359,11 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 	}
 
 	// Send notification asynchronously
-	go func() {
-		if err := SendNewGroupMessageNotification(context.Background(), senderID, senderName, content, groupChatID, participants); err != nil {
-			log.Printf("Failed to send group message notification: %v", err)
-		}
-	}()
+	// go func() {
+	// 	if err := SendNewGroupMessageNotification(context.Background(), senderID, senderName, content, groupChatID, participants); err != nil {
+	// 		log.Printf("Failed to send group message notification: %v", err)
+	// 	}
+	// }()
 
 	// Retrieve existing messages and append the new message
 	messages := mappers.GetBaseMessagesArrayFromFirestore(data, "messages")
@@ -387,7 +387,7 @@ func SendMessageService(ctx context.Context, groupChatID string, senderID string
 	return &message, nil
 }
 
-func MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) error {
+func (s *GroupChatService) MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) error {
 	// Validate required parameters
 	if groupChatID == "" {
 		return fmt.Errorf("groupChatID is required")
@@ -397,7 +397,7 @@ func MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) 
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -436,7 +436,7 @@ func MarkMessagesAsReadService(ctx context.Context, groupChatID, userID string) 
 	return nil
 }
 
-func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, userID string) (int, error) {
+func (s *GroupChatService) CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, userID string) (int, error) {
 	// Validate required parameters
 	if groupChatID == "" && projectID == "" {
 		return 0, fmt.Errorf("either groupChatID or projectID is required")
@@ -451,10 +451,10 @@ func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, use
 
 	// Fetch the group chat document
 	if groupChatID != "" {
-		docRef = FirestoreClient.Collection("group_chats").Doc(groupChatID)
+		docRef = s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 		docSnap, err = docRef.Get(ctx)
 	} else if projectID != "" {
-		query := FirestoreClient.Collection("group_chats").Where("project_id", "==", projectID).Limit(1)
+		query := s.firestoreClient.Collection("group_chats").Where("project_id", "==", projectID).Limit(1)
 		iter := query.Documents(ctx)
 		docSnap, err = iter.Next()
 	}
@@ -485,14 +485,14 @@ func CountUnreadMessagesService(ctx context.Context, groupChatID, projectID, use
 	return unreadCount, nil
 }
 
-func CountUnreadGroupMessagesFromAllChatService(ctx context.Context, userID string) (int, error) {
+func (s *GroupChatService) CountUnreadGroupMessagesFromAllChatService(ctx context.Context, userID string) (int, error) {
 	// Validate required parameter
 	if userID == "" {
 		return 0, fmt.Errorf("userID is required")
 	}
 
 	// Query all group chats
-	query := FirestoreClient.Collection("group_chats")
+	query := s.firestoreClient.Collection("group_chats")
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch group chats: %v", err)
@@ -534,7 +534,7 @@ func CountUnreadGroupMessagesFromAllChatService(ctx context.Context, userID stri
 	return totalUnreadCount, nil
 }
 
-func RemoveParticipantsFromGroupChatService(ctx context.Context, groupChatID, ownerID string, participantIDs []string) error {
+func (s *GroupChatService) RemoveParticipantsFromGroupChatService(ctx context.Context, groupChatID, ownerID string, participantIDs []string) error {
 	if groupChatID == "" {
 		return fmt.Errorf("groupChatID is required")
 	}
@@ -545,7 +545,7 @@ func RemoveParticipantsFromGroupChatService(ctx context.Context, groupChatID, ow
 		return fmt.Errorf("participantIDs list is required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -609,7 +609,7 @@ func RemoveParticipantsFromGroupChatService(ctx context.Context, groupChatID, ow
 	return nil
 }
 
-func ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderName, content, messageIDToReply string) (*models.BaseMessage, error) {
+func (s *GroupChatService) ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderName, content, messageIDToReply string) (*models.BaseMessage, error) {
 	// Validate required parameters
 	if groupChatID == "" {
 		return nil, fmt.Errorf("groupChatID is required")
@@ -625,7 +625,7 @@ func ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderNam
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
@@ -702,7 +702,7 @@ func ReplyToMessageService(ctx context.Context, groupChatID, senderID, senderNam
 	return &replyMessage, nil
 }
 
-func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, senderName, content string, files []*multipart.FileHeader) (*models.BaseMessage, error) {
+func (s *GroupChatService) AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, senderName, content string, files []*multipart.FileHeader) (*models.BaseMessage, error) {
 	// Validate required parameters
 	if groupChatID == "" {
 		return nil, fmt.Errorf("groupChatID is required")
@@ -721,7 +721,7 @@ func AttachFilesToMessageService(ctx context.Context, groupChatID, senderID, sen
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
@@ -837,7 +837,7 @@ func hasExtension(filename string, extensions []string) bool {
 	return false
 }
 
-func PinMessageService(ctx context.Context, groupChatID, userID, messageID string) error {
+func (s *GroupChatService) PinMessageService(ctx context.Context, groupChatID, userID, messageID string) error {
 	// Validate required parameters
 	if groupChatID == "" {
 		return fmt.Errorf("groupChatID is required")
@@ -850,7 +850,7 @@ func PinMessageService(ctx context.Context, groupChatID, userID, messageID strin
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -912,14 +912,14 @@ func PinMessageService(ctx context.Context, groupChatID, userID, messageID strin
 	return nil
 }
 
-func GetPinnedMessagesService(ctx context.Context, groupChatID string) ([]models.BaseMessage, error) {
+func (s *GroupChatService) GetPinnedMessagesService(ctx context.Context, groupChatID string) ([]models.BaseMessage, error) {
 	// Validate required parameters
 	if groupChatID == "" {
 		return nil, fmt.Errorf("groupChatID is required")
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
@@ -958,7 +958,7 @@ func GetPinnedMessagesService(ctx context.Context, groupChatID string) ([]models
 	return pinnedMessages, nil
 }
 
-func UnpinMessageService(ctx context.Context, groupChatID, userID, messageID string) error {
+func (s *GroupChatService) UnpinMessageService(ctx context.Context, groupChatID, userID, messageID string) error {
 	// Validate required parameters
 	if groupChatID == "" {
 		return fmt.Errorf("groupChatID is required")
@@ -971,7 +971,7 @@ func UnpinMessageService(ctx context.Context, groupChatID, userID, messageID str
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1028,12 +1028,12 @@ func UnpinMessageService(ctx context.Context, groupChatID, userID, messageID str
 	return nil
 }
 
-func ReactToMessageService(ctx context.Context, groupChatID, userID, messageID, reaction string) error {
+func (s *GroupChatService) ReactToMessageService(ctx context.Context, groupChatID, userID, messageID, reaction string) error {
 	if groupChatID == "" || userID == "" || messageID == "" || reaction == "" {
 		return fmt.Errorf("all parameters (groupChatID, userID, messageID, reaction) are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1064,12 +1064,12 @@ func ReactToMessageService(ctx context.Context, groupChatID, userID, messageID, 
 	return nil
 }
 
-func GetMessageReadReceiptsService(ctx context.Context, groupChatID, messageID string) (map[string]bool, error) {
+func (s *GroupChatService) GetMessageReadReceiptsService(ctx context.Context, groupChatID, messageID string) (map[string]bool, error) {
 	if groupChatID == "" || messageID == "" {
 		return nil, fmt.Errorf("groupChatID and messageID are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1086,8 +1086,8 @@ func GetMessageReadReceiptsService(ctx context.Context, groupChatID, messageID s
 	return nil, fmt.Errorf("message not found")
 }
 
-func SetParticipantRoleService(ctx context.Context, groupChatID, userID, participantID, newRole string) error {
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+func (s *GroupChatService) SetParticipantRoleService(ctx context.Context, groupChatID, userID, participantID, newRole string) error {
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1129,12 +1129,12 @@ func SetParticipantRoleService(ctx context.Context, groupChatID, userID, partici
 	return nil
 }
 
-func MuteParticipantService(ctx context.Context, groupChatID, userID, participantID string, duration time.Duration) error {
+func (s *GroupChatService) MuteParticipantService(ctx context.Context, groupChatID, userID, participantID string, duration time.Duration) error {
 	if groupChatID == "" || userID == "" || participantID == "" {
 		return fmt.Errorf("groupChatID, userID, and participantID are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1177,12 +1177,12 @@ func MuteParticipantService(ctx context.Context, groupChatID, userID, participan
 	return nil
 }
 
-func UpdateLastSeenService(ctx context.Context, groupChatID, userID string) error {
+func (s *GroupChatService) UpdateLastSeenService(ctx context.Context, groupChatID, userID string) error {
 	if groupChatID == "" || userID == "" {
 		return fmt.Errorf("groupChatID and userID are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	_, err := docRef.Update(ctx, []firestore.Update{
 		{Path: fmt.Sprintf("last_seen.%s", userID), Value: time.Now()},
 		{Path: "updated_at", Value: time.Now()},
@@ -1195,8 +1195,8 @@ func UpdateLastSeenService(ctx context.Context, groupChatID, userID string) erro
 	return nil
 }
 
-func ArchiveGroupChatService(ctx context.Context, groupChatID, userID string) error {
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+func (s *GroupChatService) ArchiveGroupChatService(ctx context.Context, groupChatID, userID string) error {
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	_, err := docRef.Update(ctx, []firestore.Update{
 		{Path: "is_archived", Value: true},
 		{Path: "updated_at", Value: time.Now()},
@@ -1209,12 +1209,12 @@ func ArchiveGroupChatService(ctx context.Context, groupChatID, userID string) er
 	return nil
 }
 
-func LeaveGroupService(ctx context.Context, groupChatID, userID string) error {
+func (s *GroupChatService) LeaveGroupService(ctx context.Context, groupChatID, userID string) error {
 	if groupChatID == "" || userID == "" {
 		return fmt.Errorf("groupChatID and userID are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1259,12 +1259,12 @@ func LeaveGroupService(ctx context.Context, groupChatID, userID string) error {
 	return nil
 }
 
-func CreatePollService(ctx context.Context, groupChatID, userID string, poll models.Poll) (*models.Poll, error) {
+func (s *GroupChatService) CreatePollService(ctx context.Context, groupChatID, userID string, poll models.Poll) (*models.Poll, error) {
 	if groupChatID == "" || userID == "" {
 		return nil, fmt.Errorf("groupChatID and userID are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1303,12 +1303,12 @@ func CreatePollService(ctx context.Context, groupChatID, userID string, poll mod
 	return &poll, nil
 }
 
-func ReportMessageService(ctx context.Context, groupChatID, userID, messageID, reason string) error {
+func (s *GroupChatService) ReportMessageService(ctx context.Context, groupChatID, userID, messageID, reason string) error {
 	if groupChatID == "" || userID == "" || messageID == "" || reason == "" {
 		return fmt.Errorf("all fields are required")
 	}
 
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1343,13 +1343,13 @@ func ReportMessageService(ctx context.Context, groupChatID, userID, messageID, r
 }
 
 // UpdateGroupSettingsService updates the settings of a group chat
-func UpdateGroupSettingsService(ctx context.Context, groupChatID, userID string, updatedSettings models.GroupSettings) error {
+func (s *GroupChatService) UpdateGroupSettingsService(ctx context.Context, groupChatID, userID string, updatedSettings models.GroupSettings) error {
 	if groupChatID == "" || userID == "" {
 		return fmt.Errorf("groupChatID and userID are required")
 	}
 
 	// Fetch the group chat document
-	docRef := FirestoreClient.Collection("group_chats").Doc(groupChatID)
+	docRef := s.firestoreClient.Collection("group_chats").Doc(groupChatID)
 	docSnap, err := docRef.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch group chat: %v", err)
@@ -1425,8 +1425,8 @@ func UpdateGroupSettingsService(ctx context.Context, groupChatID, userID string,
 // }
 
 // DeleteGroupChatService deletes a single group chat
-func DeleteGroupChatService(ctx context.Context, chatID string, userID string) error {
-	doc, err := FirestoreClient.Collection("group_chats").Doc(chatID).Get(ctx)
+func (s *GroupChatService) DeleteGroupChatService(ctx context.Context, chatID string, userID string) error {
+	doc, err := s.firestoreClient.Collection("group_chats").Doc(chatID).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return fmt.Errorf("group chat not found")
@@ -1456,7 +1456,7 @@ func DeleteGroupChatService(ctx context.Context, chatID string, userID string) e
 		return fmt.Errorf("unauthorized: only the owner can delete the group chat")
 	}
 
-	_, err = FirestoreClient.Collection("group_chats").Doc(chatID).Delete(ctx)
+	_, err = s.firestoreClient.Collection("group_chats").Doc(chatID).Delete(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete group chat: %v", err)
 	}
@@ -1465,13 +1465,13 @@ func DeleteGroupChatService(ctx context.Context, chatID string, userID string) e
 }
 
 // DeleteMultipleGroupChatsService deletes multiple group chats
-func DeleteMultipleGroupChatsService(ctx context.Context, chatIDs []string, userID string) error {
-	batch := FirestoreClient.Batch()
+func (s *GroupChatService) DeleteMultipleGroupChatsService(ctx context.Context, chatIDs []string, userID string) error {
+	batch := s.firestoreClient.Batch()
 	unauthorized := make([]string, 0)
 	notFound := make([]string, 0)
 
 	for _, chatID := range chatIDs {
-		doc, err := FirestoreClient.Collection("group_chats").Doc(chatID).Get(ctx)
+		doc, err := s.firestoreClient.Collection("group_chats").Doc(chatID).Get(ctx)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
 				notFound = append(notFound, chatID)
@@ -1503,7 +1503,7 @@ func DeleteMultipleGroupChatsService(ctx context.Context, chatIDs []string, user
 			continue
 		}
 
-		batch.Delete(FirestoreClient.Collection("group_chats").Doc(chatID))
+		batch.Delete(s.firestoreClient.Collection("group_chats").Doc(chatID))
 	}
 
 	if len(unauthorized) > 0 || len(notFound) > 0 {
