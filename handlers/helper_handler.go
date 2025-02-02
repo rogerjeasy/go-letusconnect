@@ -170,13 +170,13 @@ func validateCommonFields(data models.ProviderData) error {
 }
 
 func checkExistingUser(ctx context.Context, data models.ProviderData) error {
-	emailQuery := services.FirestoreClient.Collection("users").Where("email", "==", data.Email).Documents(ctx)
+	emailQuery := services.Firestore.Collection("users").Where("email", "==", data.Email).Documents(ctx)
 	defer emailQuery.Stop()
 	if _, err := emailQuery.Next(); err != iterator.Done {
 		return fmt.Errorf("email already in use")
 	}
 
-	usernameQuery := services.FirestoreClient.Collection("users").Where("username", "==", data.Username).Documents(ctx)
+	usernameQuery := services.Firestore.Collection("users").Where("username", "==", data.Username).Documents(ctx)
 	defer usernameQuery.Stop()
 	if _, err := usernameQuery.Next(); err != iterator.Done {
 		return fmt.Errorf("username already in use")
