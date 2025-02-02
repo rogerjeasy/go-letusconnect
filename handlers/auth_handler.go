@@ -26,12 +26,14 @@ import (
 )
 
 type AuthHandler struct {
-	authService *services.AuthService
+	authService      *services.AuthService
+	containerService *services.ServiceContainer
 }
 
-func NewAuthHandler(authService *services.AuthService) *AuthHandler {
+func NewAuthHandler(authService *services.AuthService, containerService *services.ServiceContainer) *AuthHandler {
 	return &AuthHandler{
-		authService: authService,
+		authService:      authService,
+		containerService: containerService,
 	}
 }
 
@@ -186,7 +188,7 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 		Program:          providerData.Program,
 		AccountCreatedAt: FormatTime(currentTime, customFormat),
 		IsActive:         true,
-		IsVerified:       providerType != models.EmailPassword, // Auto-verify OAuth users
+		IsVerified:       providerType != models.EmailPassword,
 		Role:             []string{"user"},
 		IsOnline:         true,
 		Bio:              "",
@@ -201,10 +203,7 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Convert to backend format and save to Firestore
-	backendUser := mappers.MapUserFrontendToBackend(&user)
-	_, _, err = services.FirestoreClient.Collection("users").Add(ctx, backendUser)
-	if err != nil {
-		log.Printf("Error saving to Firestore: %v", err)
+	if err := a.authService.CreateUser(ctx, &user); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to save user",
 		})
@@ -236,7 +235,7 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 
 	// Send new user notification asynchronously
 	go func() {
-		if err := services.SendNewUserNotification(context.Background(), &user); err != nil {
+		if err := a.containerService.GeneralNotificationService.SendNewUserNotification(context.Background(), &user); err != nil {
 			log.Printf("Failed to send new user notification: %v", err)
 		}
 	}()
@@ -249,7 +248,7 @@ func (a *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Map to frontend format and return response
-	frontendUser := mappers.MapUserBackendToFrontend(backendUser)
+	frontendUser := mappers.MapUserBackendToFrontend(mappers.MapUserFrontendToBackend(&user))
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"message": "You have successfully created an account",
 		"user":    frontendUser,
@@ -267,25 +266,22 @@ func (a *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate input fields
 	if strings.TrimSpace(loginData.EmailOrUsername) == "" || strings.TrimSpace(loginData.Password) == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error": "Email/Username and password are required",
 		})
 	}
 
-	// Initialize context
 	ctx := context.Background()
 
-	// First, try to find the user by email or username
 	var userQuery firestore.Query
 	emailOrUsername := strings.TrimSpace(loginData.EmailOrUsername)
 
-	// Check if input is an email
-	if strings.Contains(emailOrUsername, "@") {
-		userQuery = services.FirestoreClient.Collection("users").Where("email", "==", emailOrUsername)
-	} else {
-		userQuery = services.FirestoreClient.Collection("users").Where("username", "==", emailOrUsername)
+	userQuery, err := a.containerService.AuthService.CheckEmailorUsername(ctx, emailOrUsername)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to construct user query",
+		})
 	}
 
 	// Execute the query
@@ -311,7 +307,6 @@ func (a *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get the email for Firebase authentication
 	userEmail, ok := dbUser["email"].(string)
 	if !ok {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
@@ -319,7 +314,6 @@ func (a *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Prepare request payload for Firebase Authentication REST API
 	payload := map[string]string{
 		"email":             userEmail,
 		"password":          loginData.Password,
@@ -395,50 +389,24 @@ func (a *AuthHandler) Login(c *fiber.Ctx) error {
 
 func (a *AuthHandler) Logout(c *fiber.Ctx) error {
 
-	token := c.Get("Authorization")
-	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Authorization token is required",
-		})
-	}
-
-	// Validate token and get UID
-	uid, err := validateToken(strings.TrimPrefix(token, "Bearer "))
+	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid token",
 		})
 	}
 
 	// turn the IsOnline status to false
 	ctx := context.Background()
-	userQuery := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
-	defer userQuery.Stop()
-
-	doc, err := userQuery.Next()
-	if err == iterator.Done {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
-	}
-
-	var dbUser map[string]interface{}
-	if err := doc.DataTo(&dbUser); err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve user data",
-		})
-	}
-
-	backendUser := mappers.MapBackendToUser(dbUser)
-	backendUser.IsOnline = false
+	dbUser, err := a.containerService.AuthService.GetUserByUID(uid)
+	dbUser.IsOnline = false
 
 	// Convert the updated User struct to Firestore-compatible format
-	backendUpdates := mappers.MapUserFrontendToBackend(&backendUser)
+	backendUpdates := mappers.MapUserFrontendToBackend(dbUser)
 
 	// Update Firestore document
-	docRef := services.FirestoreClient.Collection("users").Doc(doc.Ref.ID)
-	_, err = docRef.Set(ctx, backendUpdates, firestore.MergeAll)
-	if err != nil {
+	eror := a.containerService.AuthService.UpdateUser(ctx, uid, backendUpdates)
+	if eror != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update user status",
 		})
@@ -496,44 +464,16 @@ func (a *AuthHandler) GetSession(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
-
-	query := services.FirestoreClient.Collection("users").Where("uid", "==", uid).Documents(ctx)
-	defer query.Stop()
-
-	doc, err := query.Next()
-	if err == iterator.Done {
-		log.Printf("No user found for UID: %s", uid)
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"error": fmt.Sprintf("No user found for UID: %s", uid),
-		})
-	}
+	backendUser, err := a.containerService.AuthService.GetUserByUID(uid)
 	if err != nil {
-		log.Printf("Firestore query error: %v", err)
+		log.Printf("Error fetching user data: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("Database error: %v", err),
-		})
-	}
-
-	var dbUser map[string]interface{}
-	if err := doc.DataTo(&dbUser); err != nil {
-		log.Printf("Error parsing user data: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("Failed to parse user data: %v", err),
-		})
-	}
-
-	// Convert to user model
-	backendUser := mappers.MapBackendToUser(dbUser)
-	if backendUser.Email == "" {
-		log.Printf("Mapping produced invalid user: %+v", backendUser)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to map user data correctly",
+			"error": "Failed to fetch user data",
 		})
 	}
 
 	// Generate new token
-	newToken, err := GenerateJWT(&backendUser)
+	newToken, err := GenerateJWT(backendUser)
 	if err != nil {
 		log.Printf("Error generating new token: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
@@ -552,7 +492,7 @@ func (a *AuthHandler) GetSession(c *fiber.Ctx) error {
 		Path:     "/",
 	})
 
-	frontendUser := mappers.MapUserToFrontend(&backendUser)
+	frontendUser := mappers.MapUserToFrontend(backendUser)
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"user":  frontendUser,
@@ -561,20 +501,20 @@ func (a *AuthHandler) GetSession(c *fiber.Ctx) error {
 }
 
 // FetchPlatformLogoURL retrieves the platform's logo URL from Firestore
-func FetchPlatformLogoURL() (string, error) {
-	ctx := context.Background()
-	logoDoc, err := services.FirestoreClient.Collection("config").Doc("platform").Get(ctx)
-	if err != nil {
-		log.Printf("Error fetching platform logo: %v", err)
-		return "", err
-	}
+// func FetchPlatformLogoURL() (string, error) {
+// 	ctx := context.Background()
+// 	logoDoc, err := services.FirestoreClient.Collection("config").Doc("platform").Get(ctx)
+// 	if err != nil {
+// 		log.Printf("Error fetching platform logo: %v", err)
+// 		return "", err
+// 	}
 
-	// Retrieve the logo URL from the document
-	logoURL, ok := logoDoc.Data()["logo_url"].(string)
-	if !ok {
-		log.Printf("No logo URL found in Firestore")
-		return "", nil
-	}
+// 	// Retrieve the logo URL from the document
+// 	logoURL, ok := logoDoc.Data()["logo_url"].(string)
+// 	if !ok {
+// 		log.Printf("No logo URL found in Firestore")
+// 		return "", nil
+// 	}
 
-	return logoURL, nil
-}
+// 	return logoURL, nil
+// }
