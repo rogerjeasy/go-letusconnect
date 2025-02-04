@@ -429,3 +429,94 @@ func testAcceptConnectionRequestSenderConnectionsError(mockFirestoreClient *Mock
 		assert.Contains(t, err.Error(), "failed to get sender's connections")
 	}
 }
+
+func testAcceptConnectionRequestRecipientConnectionsError(mockGetUserConnections func(string, *models.UserConnections, error), mockFirestoreClient *MockFirestoreClient, mockCollection *MockFirestoreCollection, mockQuery *MockFirestoreQuery, mockDocumentIterator *MockDocumentIterator, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests: map[string]models.SentRequest{
+				toUID: {ToUID: toUID, Status: "pending", SentAt: time.Now()},
+			},
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockFirestoreClient.On("Collection", "user_connections").Return(mockCollection)
+		mockCollection.On("Where", "uid", "==", toUID).Return(mockQuery)
+		mockQuery.On("Documents", ctx).Return(mockDocumentIterator)
+		mockDocumentIterator.On("Next").Return(nil, errors.New("firestore error"))
+
+		err := userConnectionService.AcceptConnectionRequest(ctx, fromUID, toUID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get recipient's connections")
+	}
+}
+
+func testAcceptConnectionRequestRecipientUsernameError(mockGetUserConnections func(string, *models.UserConnections, error), userService *MockUserService, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests: map[string]models.SentRequest{
+				toUID: {ToUID: toUID, Status: "pending", SentAt: time.Now()},
+			},
+		}
+
+		toConnections := &models.UserConnections{
+			ID:          "toDocID",
+			UID:         toUID,
+			Connections: make(map[string]models.Connection),
+			PendingRequests: map[string]models.ConnectionRequest{
+				fromUID: {FromUID: fromUID, Status: "pending", SentAt: time.Now()},
+			},
+			SentRequests: make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		userService.On("GetUsernameByUID", toUID).Return("", errors.New("username error"))
+
+		err := userConnectionService.AcceptConnectionRequest(ctx, fromUID, toUID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get username")
+	}
+}
+
+func testAcceptConnectionRequestSenderUsernameError(mockGetUserConnections func(string, *models.UserConnections, error), userService *MockUserService, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests: map[string]models.SentRequest{
+				toUID: {ToUID: toUID, Status: "pending", SentAt: time.Now()},
+			},
+		}
+
+		toConnections := &models.UserConnections{
+			ID:          "toDocID",
+			UID:         toUID,
+			Connections: make(map[string]models.Connection),
+			PendingRequests: map[string]models.ConnectionRequest{
+				fromUID: {FromUID: fromUID, Status: "pending", SentAt: time.Now()},
+			},
+			SentRequests: make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		userService.On("GetUsernameByUID", toUID).Return("toUsername", nil)
+		userService.On("GetUsernameByUID", fromUID).Return("", errors.New("username error"))
+
+		err := userConnectionService.AcceptConnectionRequest(ctx, fromUID, toUID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get username")
+	}
+}
