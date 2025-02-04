@@ -207,3 +207,54 @@ func testSendConnectionRequestSenderConnectionsError(mockFirestoreClient *MockFi
 		assert.Contains(t, err.Error(), "failed to get sender's connections")
 	}
 }
+
+func testSendConnectionRequestRecipientConnectionsError(mockGetUserConnections func(string, *models.UserConnections, error), mockFirestoreClient *MockFirestoreClient, mockCollection *MockFirestoreCollection, mockQuery *MockFirestoreQuery, mockDocumentIterator *MockDocumentIterator, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID, message string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockFirestoreClient.On("Collection", "user_connections").Return(mockCollection)
+		mockCollection.On("Where", "uid", "==", toUID).Return(mockQuery)
+		mockQuery.On("Documents", ctx).Return(mockDocumentIterator)
+		mockDocumentIterator.On("Next").Return(nil, errors.New("firestore error"))
+
+		err := userConnectionService.SendConnectionRequest(ctx, fromUID, toUID, message)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get recipient's connections")
+	}
+}
+
+func testSendConnectionRequestAlreadyConnected(mockGetUserConnections func(string, *models.UserConnections, error), userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID, message string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:  "fromDocID",
+			UID: fromUID,
+			Connections: map[string]models.Connection{
+				toUID: {UID: toUID},
+			},
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		toConnections := &models.UserConnections{
+			ID:              "toDocID",
+			UID:             toUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		err := userConnectionService.SendConnectionRequest(ctx, fromUID, toUID, message)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "you are already connected with this user")
+	}
+}
