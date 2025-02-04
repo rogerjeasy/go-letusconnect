@@ -258,3 +258,91 @@ func testSendConnectionRequestAlreadyConnected(mockGetUserConnections func(strin
 		assert.Contains(t, err.Error(), "you are already connected with this user")
 	}
 }
+
+func testSendConnectionRequestSenderPendingRequest(mockGetUserConnections func(string, *models.UserConnections, error), userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID, message string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests: map[string]models.SentRequest{
+				toUID: {ToUID: toUID, Status: "pending"},
+			},
+		}
+
+		toConnections := &models.UserConnections{
+			ID:              "toDocID",
+			UID:             toUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		err := userConnectionService.SendConnectionRequest(ctx, fromUID, toUID, message)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "you already have a pending connection request to this user")
+	}
+}
+
+func testSendConnectionRequestRecipientPendingRequest(mockGetUserConnections func(string, *models.UserConnections, error), userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID, message string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:          "fromDocID",
+			UID:         fromUID,
+			Connections: make(map[string]models.Connection),
+			PendingRequests: map[string]models.ConnectionRequest{
+				toUID: {FromUID: toUID, Status: "pending"},
+			},
+			SentRequests: make(map[string]models.SentRequest),
+		}
+
+		toConnections := &models.UserConnections{
+			ID:              "toDocID",
+			UID:             toUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		err := userConnectionService.SendConnectionRequest(ctx, fromUID, toUID, message)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "this user has already sent you a connection request")
+	}
+}
+
+func testSendConnectionRequestTransactionError(mockGetUserConnections func(string, *models.UserConnections, error), userService *MockUserService, mockFirestoreClient *MockFirestoreClient, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID, message string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		toConnections := &models.UserConnections{
+			ID:              "toDocID",
+			UID:             toUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests:    make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		userService.On("GetUsernameByUID", fromUID).Return("fromUsername", nil)
+		mockFirestoreClient.On("RunTransaction", ctx, mock.Anything).Return(errors.New("transaction error"))
+
+		err := userConnectionService.SendConnectionRequest(ctx, fromUID, toUID, message)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to process connection request")
+	}
+}
