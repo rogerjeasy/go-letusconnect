@@ -346,3 +346,38 @@ func testSendConnectionRequestTransactionError(mockGetUserConnections func(strin
 		assert.Contains(t, err.Error(), "failed to process connection request")
 	}
 }
+
+func TestUserConnectionService_AcceptConnectionRequest(t *testing.T) {
+	mockFirestoreClient := new(MockFirestoreClient)
+	mockCollection := new(MockFirestoreCollection)
+	mockDocument := new(MockFirestoreDocument)
+	mockDocumentSnapshot := new(MockDocumentSnapshot)
+	mockQuery := new(MockFirestoreQuery)
+	mockDocumentIterator := new(MockDocumentIterator)
+
+	userService := new(MockUserService)
+	userConnectionService := NewUserConnectionService(mockFirestoreClient, userService)
+
+	ctx := context.Background()
+	fromUID := "fromUID"
+	toUID := "toUID"
+
+	// Helper function to mock GetUserConnections
+	mockGetUserConnections := func(uid string, connections *models.UserConnections, err error) {
+		mockFirestoreClient.On("Collection", "user_connections").Return(mockCollection)
+		mockCollection.On("Where", "uid", "==", uid).Return(mockQuery)
+		mockQuery.On("Documents", ctx).Return(mockDocumentIterator)
+		mockDocumentIterator.On("Next").Return(mockDocumentSnapshot, nil)
+		mockDocumentSnapshot.On("Ref").Return(&firestore.DocumentRef{ID: "docID"})
+		mockCollection.On("Doc", "docID").Return(mockDocument)
+		mockDocument.On("Get", ctx).Return(mockDocumentSnapshot, nil)
+		mockDocumentSnapshot.On("Data").Return(mappers.MapConnectionsGoToFirestore(*connections))
+	}
+
+	t.Run("Successfully accept connection request", testAcceptConnectionRequestSuccess(mockGetUserConnections, userService, mockFirestoreClient, userConnectionService, ctx, fromUID, toUID))
+	t.Run("Failed to get sender's connections", testAcceptConnectionRequestSenderConnectionsError(mockFirestoreClient, mockCollection, mockQuery, mockDocumentIterator, userConnectionService, ctx, fromUID, toUID))
+	t.Run("Failed to get recipient's connections", testAcceptConnectionRequestRecipientConnectionsError(mockGetUserConnections, mockFirestoreClient, mockCollection, mockQuery, mockDocumentIterator, userConnectionService, ctx, fromUID, toUID))
+	t.Run("Failed to get recipient's username", testAcceptConnectionRequestRecipientUsernameError(mockGetUserConnections, userService, userConnectionService, ctx, fromUID, toUID))
+	t.Run("Failed to get sender's username", testAcceptConnectionRequestSenderUsernameError(mockGetUserConnections, userService, userConnectionService, ctx, fromUID, toUID))
+	t.Run("Firestore transaction fails", testAcceptConnectionRequestTransactionError(mockGetUserConnections, userService, mockFirestoreClient, userConnectionService, ctx, fromUID, toUID))
+}
