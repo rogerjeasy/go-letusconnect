@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/stretchr/testify/assert"
@@ -380,4 +381,51 @@ func TestUserConnectionService_AcceptConnectionRequest(t *testing.T) {
 	t.Run("Failed to get recipient's username", testAcceptConnectionRequestRecipientUsernameError(mockGetUserConnections, userService, userConnectionService, ctx, fromUID, toUID))
 	t.Run("Failed to get sender's username", testAcceptConnectionRequestSenderUsernameError(mockGetUserConnections, userService, userConnectionService, ctx, fromUID, toUID))
 	t.Run("Firestore transaction fails", testAcceptConnectionRequestTransactionError(mockGetUserConnections, userService, mockFirestoreClient, userConnectionService, ctx, fromUID, toUID))
+}
+
+func testAcceptConnectionRequestSuccess(mockGetUserConnections func(string, *models.UserConnections, error), userService *MockUserService, mockFirestoreClient *MockFirestoreClient, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID string) func(*testing.T) {
+	return func(t *testing.T) {
+		fromConnections := &models.UserConnections{
+			ID:              "fromDocID",
+			UID:             fromUID,
+			Connections:     make(map[string]models.Connection),
+			PendingRequests: make(map[string]models.ConnectionRequest),
+			SentRequests: map[string]models.SentRequest{
+				toUID: {ToUID: toUID, Status: "pending", SentAt: time.Now()},
+			},
+		}
+
+		toConnections := &models.UserConnections{
+			ID:          "toDocID",
+			UID:         toUID,
+			Connections: make(map[string]models.Connection),
+			PendingRequests: map[string]models.ConnectionRequest{
+				fromUID: {FromUID: fromUID, Status: "pending", SentAt: time.Now()},
+			},
+			SentRequests: make(map[string]models.SentRequest),
+		}
+
+		mockGetUserConnections(fromUID, fromConnections, nil)
+		mockGetUserConnections(toUID, toConnections, nil)
+
+		userService.On("GetUsernameByUID", toUID).Return("toUsername", nil)
+		userService.On("GetUsernameByUID", fromUID).Return("fromUsername", nil)
+		mockFirestoreClient.On("RunTransaction", ctx, mock.Anything).Return(nil)
+
+		err := userConnectionService.AcceptConnectionRequest(ctx, fromUID, toUID)
+		assert.NoError(t, err)
+	}
+}
+
+func testAcceptConnectionRequestSenderConnectionsError(mockFirestoreClient *MockFirestoreClient, mockCollection *MockFirestoreCollection, mockQuery *MockFirestoreClient, mockDocumentIterator *MockDocumentIterator, userConnectionService *UserConnectionService, ctx context.Context, fromUID, toUID string) func(*testing.T) {
+	return func(t *testing.T) {
+		mockFirestoreClient.On("Collection", "user_connections").Return(mockCollection)
+		mockCollection.On("Where", "uid", "==", fromUID).Return(mockQuery)
+		mockQuery.On("Documents", ctx).Return(mockDocumentIterator)
+		mockDocumentIterator.On("Next").Return(nil, errors.New("firestore error"))
+
+		err := userConnectionService.AcceptConnectionRequest(ctx, fromUID, toUID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get sender's connections")
+	}
 }
