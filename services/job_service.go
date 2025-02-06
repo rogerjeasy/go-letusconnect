@@ -28,6 +28,10 @@ func (s *JobService) CreateJob(ctx context.Context, job *models.Job) (*models.Jo
 	job.CreatedAt = time.Now()
 	job.UpdatedAt = job.CreatedAt
 
+	if job.ApplicationDate.IsZero() {
+		job.ApplicationDate = job.CreatedAt
+	}
+
 	if job.UserID == "" {
 		return nil, fmt.Errorf("user ID is required. Please log in and try again")
 	}

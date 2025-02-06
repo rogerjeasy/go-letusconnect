@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/mappers"
@@ -9,36 +10,39 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-// JobHandler handles job-related API endpoints
 type JobHandler struct {
 	JobService *services.JobService
 }
 
-// NewJobHandler initializes a new JobHandler
 func NewJobHandler(jobService *services.JobService) *JobHandler {
 	return &JobHandler{JobService: jobService}
 }
 
 // CreateJobHandler handles job creation requests
 func (h *JobHandler) CreateJobHandler(c *fiber.Ctx) error {
-	// Extract user ID from the token
 	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
 		return err
 	}
 
-	// Parse request payload
-	var job models.Job
-	if err := c.BodyParser(&job); err != nil {
+	var jobData map[string]interface{}
+	if err := c.BodyParser(&jobData); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
 	}
 
-	job.UserID = uid
+	timeStr := jobData["applicationDate"].(string)
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid date format"})
+	}
 
-	// Call the JobService to create a job
+	job := mappers.MapJobFrontendToGo(jobData)
+	job.UserID = uid
+	job.ApplicationDate = t
+
 	createdJob, err := h.JobService.CreateJob(c.Context(), &job)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create job. Reason: " + err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create job: " + err.Error()})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -79,7 +83,7 @@ func (h *JobHandler) GetJobsByUserHandler(c *fiber.Ctx) error {
 
 	jobs, err := h.JobService.GetJobsByUser(c.Context(), uid)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch jobs"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch jobs. Reason: " + err.Error()})
 	}
 
 	var jobList []map[string]interface{}
