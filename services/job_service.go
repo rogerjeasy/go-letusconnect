@@ -154,3 +154,94 @@ func (s *JobService) DeleteJob(ctx context.Context, jobID string, userID string)
 
 	return nil
 }
+
+// AddInterviewRound adds a new interview round to a job application
+func (s *JobService) AddInterviewRound(ctx context.Context, jobID string, userID string, interview models.InterviewRound) error {
+	docRef := s.firestoreClient.Collection("jobs").Doc(jobID)
+
+	// Fetch job to ensure ownership
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("job not found: %v", err)
+	}
+	job := mappers.MapJobFirestoreToGo(doc.Data())
+
+	// Ensure the user owns the job
+	if job.UserID != userID {
+		return fmt.Errorf("unauthorized: cannot add interview")
+	}
+
+	// Append new interview
+	job.Interviews = append(job.Interviews, interview)
+
+	// Update Firestore document
+	_, err = docRef.Update(ctx, []firestore.Update{
+		{Path: "interviews", Value: mappers.MapInterviewRoundsArrayToFirestore(job.Interviews)},
+		{Path: "updated_at", Value: time.Now()},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add interview round: %v", err)
+	}
+
+	return nil
+}
+
+// RemoveInterviewRound removes an interview round from a job application
+func (s *JobService) RemoveInterviewRound(ctx context.Context, jobID string, userID string, roundNumber int) error {
+	docRef := s.firestoreClient.Collection("jobs").Doc(jobID)
+
+	// Fetch job to ensure ownership
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("job not found: %v", err)
+	}
+	job := mappers.MapJobFirestoreToGo(doc.Data())
+
+	// Ensure the user owns the job
+	if job.UserID != userID {
+		return fmt.Errorf("unauthorized: cannot remove interview")
+	}
+
+	// Remove specified interview round
+	var updatedInterviews []models.InterviewRound
+	for _, interview := range job.Interviews {
+		if interview.RoundNumber != roundNumber {
+			updatedInterviews = append(updatedInterviews, interview)
+		}
+	}
+	job.Interviews = updatedInterviews
+
+	// Update Firestore document
+	_, err = docRef.Update(ctx, []firestore.Update{
+		{Path: "interviews", Value: mappers.MapInterviewRoundsArrayToFirestore(job.Interviews)},
+		{Path: "updated_at", Value: time.Now()},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to remove interview round: %v", err)
+	}
+
+	return nil
+}
+
+// GetJobsByStatus fetches jobs based on status (e.g., Applied, Interviewing, Rejected)
+func (s *JobService) GetJobsByStatus(ctx context.Context, userID string, status models.JobStatus) ([]models.Job, error) {
+	iter := s.firestoreClient.Collection("jobs").
+		Where("user_id", "==", userID).
+		Where("status", "==", string(status)).
+		Documents(ctx)
+
+	var jobs []models.Job
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch jobs: %v", err)
+		}
+		job := mappers.MapJobFirestoreToGo(doc.Data())
+		jobs = append(jobs, job)
+	}
+
+	return jobs, nil
+}
