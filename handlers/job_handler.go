@@ -9,25 +9,21 @@ import (
 	"github.com/rogerjeasy/go-letusconnect/services"
 )
 
-// JobHandler handles job-related API endpoints
 type JobHandler struct {
 	JobService *services.JobService
 }
 
-// NewJobHandler initializes a new JobHandler
 func NewJobHandler(jobService *services.JobService) *JobHandler {
 	return &JobHandler{JobService: jobService}
 }
 
 // CreateJobHandler handles job creation requests
 func (h *JobHandler) CreateJobHandler(c *fiber.Ctx) error {
-	// Extract user ID from the token
 	uid, err := ExtractAndValidateToken(c)
 	if err != nil {
 		return err
 	}
 
-	// Parse request payload
 	var job models.Job
 	if err := c.BodyParser(&job); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
@@ -79,7 +75,7 @@ func (h *JobHandler) GetJobsByUserHandler(c *fiber.Ctx) error {
 
 	jobs, err := h.JobService.GetJobsByUser(c.Context(), uid)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch jobs"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch jobs. Reason: " + err.Error()})
 	}
 
 	var jobList []map[string]interface{}
