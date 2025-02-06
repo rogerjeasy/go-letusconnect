@@ -10,40 +10,40 @@ import (
 func MapJobFrontendToGo(data map[string]interface{}) models.Job {
 	return models.Job{
 		ID:              getStringValue(data, "id"),
-		UserID:          getStringValue(data, "user_id"),
+		UserID:          getStringValue(data, "userId"),
 		Company:         getStringValue(data, "company"),
 		Position:        getStringValue(data, "position"),
 		Location:        getStringValue(data, "location"),
-		ApplicationDate: getTimeValue(data, "application_date"),
+		ApplicationDate: getTimeValue(data, "applicationDate"),
 		Status:          models.JobStatus(getStringValue(data, "status")),
-		SalaryRange:     getStringValue(data, "salary_range"),
-		JobType:         getStringValue(data, "job_type"),
-		JobDescription:  getStringValue(data, "job_description"),
-		JobPostLink:     getStringValue(data, "job_post_link"),
-		CompanyWebsite:  getStringValue(data, "company_website"),
+		SalaryRange:     getStringValue(data, "salaryRange"),
+		JobType:         getStringValue(data, "jobType"),
+		JobDescription:  getStringValue(data, "jobDescription"),
+		JobPostLink:     getStringValue(data, "jobPostLink"),
+		CompanyWebsite:  getStringValue(data, "companyWebsite"),
 		Referral:        getStringValue(data, "referral"),
 		Interviews:      getInterviewRoundsArrayFromFrontend(data, "interviews"),
-		OfferDetails:    getStringValue(data, "offer_details"),
-		RejectionReason: getStringValue(data, "rejection_reason"),
-		FollowUpDate:    getTimeValue(data, "follow_up_date"),
-		CompanyRating:   getOptionalIntValue(data, "company_rating"),
-		CreatedAt:       getTimeValue(data, "created_at"),
-		UpdatedAt:       getTimeValue(data, "updated_at"),
+		OfferDetails:    getStringValue(data, "offerDetails"),
+		RejectionReason: getStringValue(data, "rejectionReason"),
+		FollowUpDate:    getTimeValue(data, "followUpDate"),
+		CompanyRating:   getOptionalIntValue(data, "companyRating"),
+		CreatedAt:       getTimeValue(data, "createdAt"),
+		UpdatedAt:       getTimeValue(data, "updatedAt"),
 	}
 }
 
 // MapInterviewRoundFrontendToGo maps frontend InterviewRound data to Go struct format
 func MapInterviewRoundFrontendToGo(data map[string]interface{}) models.InterviewRound {
 	return models.InterviewRound{
-		RoundNumber:   getIntValue(data, "round_number"),
+		RoundNumber:   getIntValue(data, "roundNumber"),
 		Date:          getTimeValue(data, "date"),
 		Time:          getStringValue(data, "time"),
 		Location:      getStringValue(data, "location"),
-		InterviewType: models.InterviewType(getStringValue(data, "interview_type")),
+		InterviewType: models.InterviewType(getStringValue(data, "interviewType")),
 		Interviewer:   getStringValue(data, "interviewer"),
 		Description:   getStringValue(data, "description"),
 		Reminder:      models.ReminderType(getStringValue(data, "reminder")),
-		MeetingLink:   getStringValue(data, "meeting_link"),
+		MeetingLink:   getStringValue(data, "meetingLink"),
 		Notes:         getStringValue(data, "notes"),
 	}
 }
@@ -161,16 +161,16 @@ func MapJobGoToFrontend(job models.Job) map[string]interface{} {
 // MapInterviewRoundGoToFrontend maps Go struct InterviewRound data to frontend format
 func MapInterviewRoundGoToFrontend(interview models.InterviewRound) map[string]interface{} {
 	return map[string]interface{}{
-		"round_number":   interview.RoundNumber,
-		"date":           interview.Date.Format(time.RFC3339),
-		"time":           interview.Time,
-		"location":       interview.Location,
-		"interview_type": string(interview.InterviewType),
-		"interviewer":    interview.Interviewer,
-		"description":    interview.Description,
-		"reminder":       string(interview.Reminder),
-		"meeting_link":   interview.MeetingLink,
-		"notes":          interview.Notes,
+		"roundNumber":   interview.RoundNumber,
+		"date":          interview.Date.Format(time.RFC3339),
+		"time":          interview.Time,
+		"location":      interview.Location,
+		"interviewType": string(interview.InterviewType),
+		"interviewer":   interview.Interviewer,
+		"description":   interview.Description,
+		"reminder":      string(interview.Reminder),
+		"meetingLink":   interview.MeetingLink,
+		"notes":         interview.Notes,
 	}
 }
 
