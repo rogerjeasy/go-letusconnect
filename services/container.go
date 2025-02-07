@@ -30,6 +30,7 @@ type ServiceContainer struct {
 	TestimonialService          *TestimonialService
 	GeneralNotificationService  *GeneralNotificationService
 	JobService                  *JobService
+	LinkedInJobsService         *LinkedInJobsService
 	// Add other services as needed
 }
 
@@ -59,6 +60,7 @@ func NewServiceContainer(firestoreClient FirestoreClient, userSerrvice *UserServ
 		TestimonialService:          NewTestimonialService(firestoreClient, userSerrvice),
 		GeneralNotificationService:  NewGeneralNotificationService(firestoreClient),
 		JobService:                  NewJobService(firestoreClient),
+		LinkedInJobsService:         NewLinkedInJobsService(firestoreClient),
 		// WebSocketService:    NewWebSocketService(firestoreClient),
 		// UserConnectionService: NewUserConnectionService(firestoreClient, userSerrvice),
 		// Initialize other services

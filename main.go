@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rogerjeasy/go-letusconnect/config"
+	"github.com/rogerjeasy/go-letusconnect/handlers"
 	"github.com/rogerjeasy/go-letusconnect/middleware"
 	"github.com/rogerjeasy/go-letusconnect/routes"
 	"github.com/rogerjeasy/go-letusconnect/services"
@@ -31,7 +32,12 @@ func main() {
 
 	serviceContainer := services.NewServiceContainer(services.Firestore, userService, cloudinary)
 
+	authService := services.NewAuthService(services.Firestore)
+	authHandler := handlers.NewAuthHandler(authService, serviceContainer)
+
 	app := fiber.New()
+
+	app.Post("/auth/linkedin", authHandler.LinkedInCallback)
 
 	websocketService := services.NewGorillaWebSocketService()
 	websocketService.HandleWebSocket(app)

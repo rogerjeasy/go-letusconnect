@@ -34,6 +34,11 @@ var (
 	GithubClientSecret string
 	GoogleCredentials  string
 	AppURL             string
+
+	// LinkedIn credentials
+	LinkedInClientID     string
+	LinkedInClientSecret string
+	LinkedInRedirectURL  string
 )
 
 func LoadConfig() {
@@ -74,4 +79,9 @@ func LoadConfig() {
 	GithubClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 	GoogleCredentials = JsonServiceAccountPath
 	AppURL = os.Getenv("APP_URL")
+
+	// LinkedIn credentials
+	LinkedInClientID = os.Getenv("LINKEDIN_CLIENT_ID")
+	LinkedInClientSecret = os.Getenv("LINKEDIN_CLIENT_SECRET")
+	LinkedInRedirectURL = os.Getenv("LINKEDIN_REDIRECT_URL")
 }
