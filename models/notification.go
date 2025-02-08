@@ -58,15 +58,23 @@ const (
 	NotificationTypeNewRequest         NotificationType = "new_request"
 	NotificationTypeNewReview          NotificationType = "new_review"
 	NotificationTypeNewFeedback        NotificationType = "new_feedback"
+	NotificationTypeSMS                NotificationType = "sms"
+	NotificationTypeEmail              NotificationType = "email"
 )
 
 // Define constants for NotificationStatus
 const (
-	NotificationStatusUnread   NotificationStatus = "unread"
-	NotificationStatusRead     NotificationStatus = "read"
-	NotificationStatusHidden   NotificationStatus = "hidden"
-	NotificationStatusArchived NotificationStatus = "archived"
-	NotificationStatusDeleted  NotificationStatus = "deleted"
+	NotificationStatusUnread    NotificationStatus = "unread"
+	NotificationStatusRead      NotificationStatus = "read"
+	NotificationStatusHidden    NotificationStatus = "hidden"
+	NotificationStatusArchived  NotificationStatus = "archived"
+	NotificationStatusDeleted   NotificationStatus = "deleted"
+	NotificationStatusPending   NotificationStatus = "pending"
+	NotificationStatusSent      NotificationStatus = "sent"
+	NotificationStatusFailed    NotificationStatus = "failed"
+	NotificationStatusDraft     NotificationStatus = "draft"
+	NotificationStatusScheduled NotificationStatus = "scheduled"
+	NotificationStatusCancelled NotificationStatus = "cancelled"
 )
 
 // Define constants for NotificationPriority
@@ -121,6 +129,8 @@ type Notification struct {
 	DeliveryChannel string                 `json:"deliveryChannel,omitempty" firestore:"delivery_channel,omitempty"`
 	TargetedUsers   []string               `json:"targetedUsers,omitempty" firestore:"targeted_users,omitempty"`
 	IsRead          bool                   `json:"isRead,omitempty" firestore:"is_read,omitempty"`
+	ScheduledAt     time.Time              `json:"scheduledAt,omitempty" firestore:"scheduled_at,omitempty"`
+	Recipient       string                 `json:"recipient,omitempty" firestore:"recipient,omitempty"`
 }
 
 // NotificationStats represents statistics about user's notifications
@@ -131,4 +141,21 @@ type NotificationStats struct {
 	ArchivedCount int64            `json:"archived_count"`
 	PriorityStats map[string]int64 `json:"priority_stats"`
 	TypeStats     map[string]int64 `json:"type_stats"`
+}
+
+type NotificationRequest struct {
+	UserID      string           `json:"userId" firestore:"user_id"`
+	Type        NotificationType `json:"type" firestore:"type"`
+	Subject     string           `json:"subject" firestore:"subject"`
+	Content     string           `json:"content" firestore:"content"`
+	Recipient   string           `json:"recipient" firestore:"recipient"`
+	ScheduledAt time.Time        `json:"scheduledAt" firestore:"scheduled_at"`
+}
+
+func (nt NotificationType) IsSMS() bool {
+	return nt == NotificationTypeSMS
+}
+
+func (nt NotificationType) IsEmail() bool {
+	return nt == NotificationTypeEmail
 }

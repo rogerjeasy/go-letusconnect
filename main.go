@@ -17,6 +17,11 @@ import (
 )
 
 func main() {
+
+	// Create a context that we'll use to manage service lifecycles
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+
 	config.LoadConfig()
 
 	// Initialize Firebase
@@ -31,6 +36,10 @@ func main() {
 	cloudinary := services.InitCloudinary()
 
 	serviceContainer := services.NewServiceContainer(services.Firestore, userService, cloudinary)
+
+	// Start background services
+	// serviceContainer.StartServices(ctx)
+	// defer serviceContainer.StopServices()
 
 	authService := services.NewAuthService(services.Firestore)
 	authHandler := handlers.NewAuthHandler(authService, serviceContainer)
