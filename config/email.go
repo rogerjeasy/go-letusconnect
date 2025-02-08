@@ -39,6 +39,10 @@ var (
 	LinkedInClientID     string
 	LinkedInClientSecret string
 	LinkedInRedirectURL  string
+
+	TwilioAccountSID string
+	TwilioAuthToken  string
+	TwilioFromNumber string
 )
 
 func LoadConfig() {
@@ -84,4 +88,8 @@ func LoadConfig() {
 	LinkedInClientID = os.Getenv("LINKEDIN_CLIENT_ID")
 	LinkedInClientSecret = os.Getenv("LINKEDIN_CLIENT_SECRET")
 	LinkedInRedirectURL = os.Getenv("LINKEDIN_REDIRECT_URL")
+
+	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_ID")
+	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
+	TwilioFromNumber = os.Getenv("TWILIO_FROM_NUMBER")
 }
