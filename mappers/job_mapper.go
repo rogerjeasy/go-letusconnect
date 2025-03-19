@@ -98,7 +98,7 @@ func MapJobFirestoreToGo(data map[string]interface{}) models.Job {
 		Company:         getStringValue(data, "company"),
 		Position:        getStringValue(data, "position"),
 		Location:        getStringValue(data, "location"),
-		ApplicationDate: data["application_date"].(time.Time),
+		ApplicationDate: getTimeValueSafe(data, "application_date"),
 		Status:          models.JobStatus(getStringValue(data, "status")),
 		SalaryRange:     getStringValue(data, "salary_range"),
 		JobType:         getStringValue(data, "job_type"),
@@ -109,11 +109,20 @@ func MapJobFirestoreToGo(data map[string]interface{}) models.Job {
 		Interviews:      getInterviewRoundsArrayFromFirestore(data, "interviews"),
 		OfferDetails:    getStringValue(data, "offer_details"),
 		RejectionReason: getStringValue(data, "rejection_reason"),
-		FollowUpDate:    data["follow_up_date"].(time.Time),
+		FollowUpDate:    getTimeValueSafe(data, "follow_up_date"),
 		CompanyRating:   getOptionalIntValue(data, "company_rating"),
-		CreatedAt:       data["created_at"].(time.Time),
-		UpdatedAt:       data["updated_at"].(time.Time),
+		CreatedAt:       getTimeValueSafe(data, "created_at"),
+		UpdatedAt:       getTimeValueSafe(data, "updated_at"),
 	}
+}
+
+func getTimeValueSafe(data map[string]interface{}, key string) time.Time {
+	if value, ok := data[key]; ok {
+		if t, ok := value.(time.Time); ok {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 // MapInterviewRoundFirestoreToGo maps Firestore InterviewRound data to Go struct format

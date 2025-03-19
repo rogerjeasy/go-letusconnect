@@ -19,7 +19,6 @@ var allowedOrigins = map[string]bool{
 // ConfigureCORS returns CORS middleware configuration for HTTP requests
 func ConfigureCORS() fiber.Handler {
 	return cors.New(cors.Config{
-		AllowOrigins:     strings.Join(getOriginsSlice(), ", "),
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
 		AllowMethods:     "GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS",
 		AllowCredentials: true,
